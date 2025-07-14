@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="QuattroFacturatieProgramma.MainPage"
+             xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:models="clr-namespace:QuattroFacturatieProgramma.Models"
+             xmlns:viewmodels="clr-namespace:QuattroFacturatieProgramma.ViewModels"
+             xmlns:converters="clr-namespace:QuattroFacturatieProgramma.Converters"
+             x:DataType="viewmodels:MainViewModel"
+             Title="Quattro Facturatie">
+
+    <ScrollView>
+        <VerticalStackLayout Spacing="20" Padding="20">
+
+            <!-- Titel -->
+            <HorizontalStackLayout HorizontalOptions="Center" Spacing="10">
+                <Image Source="quattro_logo.png"
+                       HeightRequest="40"
+                       VerticalOptions="Center" />
+                <Label Text="Facturatie Programma"
+                       FontSize="24"
+                       FontAttributes="Bold"
+                       VerticalOptions="Center"
+                       TextColor="#2E5C8A" />
+            </HorizontalStackLayout>
+
+            <!-- Status -->
+            <Label Text="{Binding StatusTekst}" 
+                   FontSize="14"
+                   TextColor="Gray"
+                   HorizontalOptions="Center" />
+
+            <!-- PROGRESS INDICATOR - NIEUW! -->
+            <Border StrokeThickness="2" 
+                    Stroke="#2E5C8A" 
+                    BackgroundColor="#E8F4FD"
+                    Padding="15"
+                    IsVisible="{Binding IsFacturenAanHetGenereren}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8"/>
+                </Border.StrokeShape>
+
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="🔄 Facturen aan het genereren..."
+                           FontSize="16" 
+                           FontAttributes="Bold"
+                           TextColor="#2E5C8A"
+                           HorizontalOptions="Center" />
+
+                    <Label Text="{Binding FactuurProgressTekst}" 
+                           FontSize="14"
+                           TextColor="#333"
+                           HorizontalOptions="Center"
+                           LineBreakMode="TailTruncation" />
+
+                    <ProgressBar Progress="{Binding FactuurProgress, Converter={x:Static converters:PercentageToProgressConverter.Instance}}"
+                                 ProgressColor="#2E5C8A"
+                                 BackgroundColor="#DDD"
+                                 HeightRequest="8"
+                                 Margin="0,5" />
+
+                    <Label Text="{Binding FactuurProgress, StringFormat='{0:F0}% voltooid'}" 
+                           FontSize="12"
+                           TextColor="#666"
+                           HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Excel laden sectie -->
+            <Border StrokeThickness="1" 
+                    Stroke="LightGray" 
+                    BackgroundColor="White"
+                    Padding="15">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8"/>
+                </Border.StrokeShape>
+
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Excel bestand" 
+                           FontSize="16" 
+                           FontAttributes="Bold" />
+
+                    <Button Text="Excel bestand laden"
+                            Command="{Binding LaadExcelBestandCommand}"
+                            BackgroundColor="#2E5C8A"
+                            TextColor="White"
+                            CornerRadius="5"
+                            IsEnabled="{Binding IsFacturenAanHetGenereren, Converter={x:Static converters:InvertedBoolConverter.Instance}}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Maand selectie -->
+            <Border StrokeThickness="1" 
+                    Stroke="LightGray" 
+                    BackgroundColor="White"
+                    Padding="15"
+                    IsVisible="{Binding IsExcelGeladen}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8"/>
+                </Border.StrokeShape>
+
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Selecteer maand:" 
+                           FontSize="16" 
+                           FontAttributes="Bold" />
+
+                    <Picker ItemsSource="{Binding Maanden}"
+                            SelectedItem="{Binding GeselecteerdeMaand}"
+                            Title="Kies een maand..."
+                            BackgroundColor="White"
+                            TextColor="Black"
+                            IsEnabled="{Binding IsFacturenAanHetGenereren, Converter={x:Static converters:InvertedBoolConverter.Instance}}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Klanten lijst -->
+            <Border StrokeThickness="1" 
+                    Stroke="LightGray" 
+                    BackgroundColor="White"
+                    Padding="15"
+                    IsVisible="{Binding IsExcelGeladen}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8"/>
+                </Border.StrokeShape>
+
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Selecteer klanten:" 
+                           FontSize="16" 
+                           FontAttributes="Bold" />
+
+                    <ScrollView MaximumHeightRequest="300">
+                        <CollectionView ItemsSource="{Binding Klanten}"
+                                        SelectionMode="None">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="models:KlantItem">
+                                    <Grid Padding="10,5">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <CheckBox Grid.Column="0"
+                                                  IsChecked="{Binding IsGeselecteerd}"
+                                                  VerticalOptions="Center" />
+
+                                        <Label Grid.Column="1"
+                                               Text="{Binding Naam}"
+                                               VerticalOptions="Center"
+                                               Margin="10,0,0,0" />
+
+                                        <Label Grid.Column="2"
+                                               Text="{Binding BedragFormatted}"
+                                               VerticalOptions="Center"
+                                               FontAttributes="Bold"
+                                               TextColor="#2E5C8A" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </ScrollView>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Acties -->
+            <VerticalStackLayout Spacing="10" IsVisible="{Binding IsExcelGeladen}">
+                <Button Text="Alle klanten selecteren"
+                        Command="{Binding SelecteerAlleKlantenCommand}"
+                        BackgroundColor="#28a745"
+                        TextColor="White"
+                        CornerRadius="5"
+                        IsEnabled="{Binding IsFacturenAanHetGenereren, Converter={x:Static converters:InvertedBoolConverter.Instance}}" />
+
+                <Button Text="Alle klanten deselecteren"
+                        Command="{Binding DeselecteerAlleKlantenCommand}"
+                        BackgroundColor="#6c757d"
+                        TextColor="White"
+                        CornerRadius="5"
+                        IsEnabled="{Binding IsFacturenAanHetGenereren, Converter={x:Static converters:InvertedBoolConverter.Instance}}" />
+
+                <Button Text="Facturen genereren"
+                        Command="{Binding GenereerFacturenCommand}"
+                        BackgroundColor="#dc3545"
+                        TextColor="White"
+                        CornerRadius="5"
+                        FontAttributes="Bold"
+                        FontSize="16"
+                        IsEnabled="{Binding IsFacturenAanHetGenereren, Converter={x:Static converters:InvertedBoolConverter.Instance}}" />
+
+                <Button Text="Instellingen"
+                        Command="{Binding OpenInstellingenCommand}"
+                        BackgroundColor="#007bff"
+                        TextColor="White"
+                        CornerRadius="5"
+                        FontAttributes="Bold"
+                        IsEnabled="{Binding IsFacturenAanHetGenereren, Converter={x:Static converters:InvertedBoolConverter.Instance}}" />
+
+            </VerticalStackLayout>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -1,0 +1,60 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+
+    <Identity Name="QuattroFacturatieProgramma11.221"
+              Publisher="CN=Developer"
+              Version="1.0.0.0" />
+
+    <Properties>
+        <DisplayName>Quattro Facturatie Programma</DisplayName>
+        <PublisherDisplayName>CN=Developer</PublisherDisplayName>
+        <Logo>Resources\Images\square44x44logo.png</Logo>
+    </Properties>
+
+    <Dependencies>
+        <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.19041.0" />
+    </Dependencies>
+
+    <Resources>
+        <Resource Language="nl-NL" />
+    </Resources>
+
+    <Applications>
+        <Application Id="App"
+                     Executable="QuattroFacturatieProgramma.exe"
+                     EntryPoint="QuattroFacturatieProgramma.App">
+
+            <uap:VisualElements
+                DisplayName="Quattro Facturatie Programma"
+                Square44x44Logo="Resources\Images\square44x44logo.png"
+                Description="Facturatie programma"
+                BackgroundColor="transparent" Square150x150Logo="Resources\Images\square44x44logo.png">
+
+                <uap:InitialRotationPreference>
+                    <uap:Rotation Preference="landscape"/>
+                </uap:InitialRotationPreference>
+
+                <uap:DefaultTile>
+
+                    <uap:ShowNameOnTiles>
+
+                        <uap:ShowOn Tile="square150x150Logo"/>
+                    </uap:ShowNameOnTiles>
+                </uap:DefaultTile>
+
+                <uap:LockScreen BadgeLogo="Resources\Images\square44x44logo.png" Notification="badge"/>
+
+            </uap:VisualElements>
+        </Application>
+    </Applications>
+
+    <Capabilities>
+        <rescap:Capability Name="runFullTrust" />
+        <Capability Name="internetClient" />
+    </Capabilities>
+
+</Package>

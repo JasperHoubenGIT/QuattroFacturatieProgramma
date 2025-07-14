@@ -1,0 +1,22 @@
+{
+  "profiles": {
+    "Windows Machine": {
+      "commandName": "Executable",
+      "nativeDebugging": false
+    },
+    "QuattroFacturatieProgramma": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      },
+      "dotnetRunMessages": true
+    },
+    "Profile 1": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      },
+      "dotnetRunMessages": true
+    }
+  }
+}
