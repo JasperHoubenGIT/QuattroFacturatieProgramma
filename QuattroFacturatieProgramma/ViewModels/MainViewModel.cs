@@ -1,18 +1,21 @@
 ﻿using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using ClosedXML.Excel;
-using iTextSharp.text;
-using iTextSharp.text.pdf;
+using OfficeOpenXml;
 using QuattroFacturatieProgramma.Models;
 using QuattroFacturatieProgramma.Helpers;
 using QuattroFacturatieProgramma.Views;
-using iTextFont = iTextSharp.text.Font;
-using iTextElement = iTextSharp.text.Element;
-using iTextSharp.text.pdf.draw;
 using Microsoft.Extensions.Configuration;
 using Application = Microsoft.Maui.Controls.Application;
-using Document = iTextSharp.text.Document;
+using iText.Kernel.Pdf;
+using iText.Layout;
+using iText.Layout.Element;
+using iText.Layout.Properties;
+using iText.Kernel.Colors;
+using iText.Kernel.Font;
+using iText.IO.Font.Constants;
+using iText.Kernel.Geom;
+using Path = System.IO.Path;
 
 namespace QuattroFacturatieProgramma.ViewModels
 {
@@ -109,14 +112,14 @@ namespace QuattroFacturatieProgramma.ViewModels
                 // Update KlantHelper met het juiste Excel bestand pad
                 _klantHelper.ZetExcelBestandPad(pad);
 
-                using var workbook = new XLWorkbook(pad);
-                var sheet = workbook.Worksheet(JaarConfiguratie.RealisatieSheetNaam); // Dynamisch sheet naam
+                using var workbook = new ExcelPackage(new FileInfo(pad));
+                var sheet = workbook.Workbook.Worksheets[JaarConfiguratie.RealisatieSheetNaam]; // Dynamisch sheet naam
 
                 // Laad maandnamen
                 var maandNamen = new Dictionary<int, string>();
                 for (int kol = 2; kol <= 13; kol++)
                 {
-                    var maandNaam = sheet.Cell(3, kol).GetString();
+                    var maandNaam = sheet.Cells[3, kol].Value?.ToString() ?? "";
                     if (!string.IsNullOrWhiteSpace(maandNaam))
                     {
                         maandNamen[kol] = maandNaam;
@@ -129,7 +132,7 @@ namespace QuattroFacturatieProgramma.ViewModels
                 // Laad klanten en bedragen - DYNAMISCH in plaats van hardcoded rij 4-31
                 foreach (int rij in klantRijen)
                 {
-                    var klant = sheet.Cell(rij, 1).GetString();
+                    var klant = sheet.Cells[rij, 1].Value?.ToString() ?? "";
                     if (!string.IsNullOrWhiteSpace(klant))
                     {
                         foreach (var maandInfo in maandNamen)
@@ -137,7 +140,7 @@ namespace QuattroFacturatieProgramma.ViewModels
                             int kol = maandInfo.Key;
                             string maand = maandInfo.Value;
 
-                            var celWaarde = sheet.Cell(rij, kol).GetString();
+                            var celWaarde = sheet.Cells[rij, kol].Value?.ToString() ?? "";
                             if (double.TryParse(celWaarde, out double bedrag) && bedrag > 0)
                             {
                                 if (!_klantenPerMaand.ContainsKey(maand))
@@ -172,7 +175,7 @@ namespace QuattroFacturatieProgramma.ViewModels
         /// <summary>
         /// Zoekt dynamisch alle rijen met klanten/projecten in het Excel bestand
         /// </summary>
-        private List<int> ZoekKlantRijen(IXLWorksheet sheet)
+        private List<int> ZoekKlantRijen(ExcelWorksheet sheet)
         {
             var klantRijen = new List<int>();
 
@@ -193,7 +196,7 @@ namespace QuattroFacturatieProgramma.ViewModels
 
             while (huidigeRij <= 200) // Veiligheidsklep
             {
-                var celWaarde = sheet.Cell(huidigeRij, 1).GetString().Trim();
+                var celWaarde = sheet.Cells[huidigeRij, 1].Value?.ToString() ?? "";
 
                 // Stop condities
                 if (string.IsNullOrEmpty(celWaarde))
@@ -223,12 +226,12 @@ namespace QuattroFacturatieProgramma.ViewModels
         /// <summary>
         /// Zoekt de rij waar "Factuurgegevens:" staat
         /// </summary>
-        private int ZoekFactuurgegevensHeader(IXLWorksheet sheet)
+        private int ZoekFactuurgegevensHeader(ExcelWorksheet sheet)
         {
             for (int rij = 1; rij <= 20; rij++)
             {
-                var celWaarde = sheet.Cell(rij, 1).GetString().ToLower();
-                if (celWaarde.Contains("factuurgegevens"))
+                var celWaarde = sheet.Cells[rij, 1].Value?.ToString() ?? "";
+                if (celWaarde.ToLower().Contains("factuurgegevens"))
                 {
                     return rij;
                 }
@@ -248,11 +251,11 @@ namespace QuattroFacturatieProgramma.ViewModels
         /// <summary>
         /// Controleert of er meerdere lege cellen na elkaar komen
         /// </summary>
-        private bool IsConsecutieveLegeCellen(IXLWorksheet sheet, int startRij, int kolom, int aantalCellen)
+        private bool IsConsecutieveLegeCellen(ExcelWorksheet sheet, int startRij, int kolom, int aantalCellen)
         {
             for (int i = 0; i < aantalCellen; i++)
             {
-                var celWaarde = sheet.Cell(startRij + i, kolom).GetString().Trim();
+                var celWaarde = sheet.Cells[startRij + i, kolom].Value?.ToString() ?? "";
                 if (!string.IsNullOrEmpty(celWaarde))
                 {
                     return false;
@@ -441,20 +444,21 @@ namespace QuattroFacturatieProgramma.ViewModels
         private async Task GenereerPDFFactuurMetTweeBladzijdenAsync(string klantNaam, string maand, double bedrag, string bestandsPad, string factuurnummer, string klantEmail = null)
         {
             using var stream = new FileStream(bestandsPad, FileMode.Create);
-            using var document = new Document(PageSize.A4, 50, 50, 50, 50);
-            var writer = PdfWriter.GetInstance(document, stream);
-            document.Open();
+            using var writer = new PdfWriter(stream);
+            using var pdf = new PdfDocument(writer);
+            using var document = new Document(pdf, PageSize.A4);
+            document.SetMargins(50, 50, 50, 50);
 
             // GEBRUIK DYNAMISCHE DATUM LOGICA
             var eersteVanMaand = JaarConfiguratie.BepaalEersteVanMaand(maand);
 
             // Fonts
-            var titelFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 20, BaseColor.DARK_GRAY);
-            var bedrijfsFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 14, BaseColor.DARK_GRAY);
-            var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 12, BaseColor.BLACK);
-            var normalFont = FontFactory.GetFont(FontFactory.HELVETICA, 10, BaseColor.BLACK);
-            var kleinFont = FontFactory.GetFont(FontFactory.HELVETICA, 9, BaseColor.DARK_GRAY);
-            var accentFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 11, BaseColor.WHITE);
+            var titelFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var bedrijfsFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var headerFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var normalFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            var kleinFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            var accentFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
 
             // BEREKEN TOTAAL UREN ÉÉN KEER
             double totaalUren = PdfHelper.BerekenTotaalUren(klantNaam, maand, _klantHelper);
@@ -514,7 +518,7 @@ namespace QuattroFacturatieProgramma.ViewModels
                 titelFont, bedrijfsFont, headerFont, normalFont, kleinFont, accentFont, qrCodeBytes, paymentId, logoBytes, _klantHelper, totaalUren);
 
             // Nieuwe pagina voor urenverantwoording
-            document.NewPage();
+            document.Add(new AreaBreak(AreaBreakType.NEXT_PAGE));
 
             // Genereer urenverantwoording pagina MET dezelfde totaal uren
             PdfHelper.MaakUrenverantwoordingPagina(document, maand, klantNaam, headerFont, normalFont, kleinFont, accentFont, _klantHelper, totaalUren);

@@ -1,4 +1,4 @@
-﻿using ClosedXML.Excel;
+﻿using OfficeOpenXml;
 using System.Text.RegularExpressions;
 
 namespace QuattroFacturatieProgramma.Helpers
@@ -28,8 +28,8 @@ namespace QuattroFacturatieProgramma.Helpers
         {
             try
             {
-                using var workbook = new XLWorkbook(_excelBestand);
-                var worksheetNamen = workbook.Worksheets.Select(w => w.Name).ToList();
+                using var workbook = new ExcelPackage(new FileInfo(_excelBestand));
+                var worksheetNamen = workbook.Workbook.Worksheets.Select(w => w.Name).ToList();
 
                 // Exacte match eerst
                 var exacteMatch = worksheetNamen.FirstOrDefault(naam =>
@@ -132,29 +132,29 @@ namespace QuattroFacturatieProgramma.Helpers
 
             try
             {
-                using var workbook = new XLWorkbook(_excelBestand);
-                var worksheet = workbook.Worksheet(tabbladNaam);
+                using var workbook = new ExcelPackage(new FileInfo(_excelBestand));
+                var worksheet = workbook.Workbook.Worksheets[tabbladNaam];
 
                 // EXACTE IMPLEMENTATIE VOOR JOUW STRUCTUUR
                 var nawGegevens = new KlantNAWGegevens
                 {
                     // Rij 1: B="Naam Project", C="QHR_Weert_Laarveld 10 woningen"
-                    Naam = worksheet.Cell(1, 3).GetString().Trim(),
+                    Naam = worksheet.Cells[1, 3].Text.Trim(),
 
                     // Rij 2: B="T.a.v.", C="de heer G.P.J. Houben"
-                    Adres = worksheet.Cell(2, 3).GetString().Trim(),
+                    Adres = worksheet.Cells[2, 3].Text.Trim(),
 
                     // Rij 3: B="Straatnaam", C="Willinkhof 3"
-                    Straat = worksheet.Cell(3, 3).GetString().Trim(),
+                    Straat = worksheet.Cells[3, 3].Text.Trim(),
 
                     // Rij 4: B="Postcode", C="6006 RG"
-                    Postcode = worksheet.Cell(4, 3).GetString().Trim(),
+                    Postcode = worksheet.Cells[4, 3].Text.Trim(),
 
                     // Rij 5: B="Stad", C="Weert"
-                    Stad = worksheet.Cell(5, 3).GetString().Trim(),
+                    Stad = worksheet.Cells[5, 3].Text.Trim(),
 
                     // Rij 6: B="Prijs per uur", C="107.5" - VERBETERDE UITLEZING
-                    PrijsPerUur = ParsePrijsPerUurUitCell(worksheet.Cell(6, 3))
+                    PrijsPerUur = ParsePrijsPerUurUitCell(worksheet.Cells[6, 3])
                 };
 
                 // Vul ontbrekende velden met defaults
@@ -184,19 +184,19 @@ namespace QuattroFacturatieProgramma.Helpers
         /// <summary>
         /// Parseert prijs per uur direct uit Excel cel (betere methode)
         /// </summary>
-        private double ParsePrijsPerUurUitCell(IXLCell cell)
+        private double ParsePrijsPerUurUitCell(ExcelRange cell)
         {
             try
             {
                 // Probeer eerst als getal
-                if (cell.TryGetValue(out double getalWaarde))
+                if (cell.Value != null && double.TryParse(cell.Value.ToString(), out double getalWaarde))
                 {
                     Console.WriteLine($"✅ Prijs als getal gelezen: {getalWaarde}");
                     return getalWaarde;
                 }
 
                 // Als dat niet lukt, probeer als tekst
-                var tekstWaarde = cell.GetString().Trim();
+                var tekstWaarde = cell.Text.Trim();
                 Console.WriteLine($"🔍 Prijs als tekst: '{tekstWaarde}'");
 
                 return ParsePrijsPerUur(tekstWaarde);
@@ -254,18 +254,18 @@ namespace QuattroFacturatieProgramma.Helpers
 
             try
             {
-                using var workbook = new XLWorkbook(_excelBestand);
-                var worksheet = workbook.Worksheet(tabbladNaam);
+                using var workbook = new ExcelPackage(new FileInfo(_excelBestand));
+                var worksheet = workbook.Workbook.Worksheets[tabbladNaam];
 
                 var alleUrenRegels = new List<UrenRegel>();
 
                 // STAP 1: Lees ALLE uren uit het tabblad
                 for (int rij = 10; rij <= 200; rij++)
                 {
-                    var datumCel = worksheet.Cell(rij, 2).GetString().Trim();      // Kolom B
-                    var activiteitCel = worksheet.Cell(rij, 3).GetString().Trim(); // Kolom C
-                    var urenCel = worksheet.Cell(rij, 4).GetString().Trim();       // Kolom D
-                    var opmerkingenCel = worksheet.Cell(rij, 5).GetString().Trim(); // Kolom E - OPMERKINGEN!
+                    var datumCel = worksheet.Cells[rij, 2].Text.Trim();      // Kolom B
+                    var activiteitCel = worksheet.Cells[rij, 3].Text.Trim(); // Kolom C
+                    var urenCel = worksheet.Cells[rij, 4].Text.Trim();       // Kolom D
+                    var opmerkingenCel = worksheet.Cells[rij, 5].Text.Trim(); // Kolom E - OPMERKINGEN!
 
                     // Stop als alle cellen leeg zijn
                     if (string.IsNullOrEmpty(datumCel) &&
@@ -276,9 +276,9 @@ namespace QuattroFacturatieProgramma.Helpers
                         bool isEchtEinde = true;
                         for (int checkRij = rij + 1; checkRij <= rij + 3; checkRij++)
                         {
-                            if (!string.IsNullOrEmpty(worksheet.Cell(checkRij, 2).GetString()) ||
-                                !string.IsNullOrEmpty(worksheet.Cell(checkRij, 3).GetString()) ||
-                                !string.IsNullOrEmpty(worksheet.Cell(checkRij, 4).GetString()))
+                            if (!string.IsNullOrEmpty(worksheet.Cells[checkRij, 2].Text) ||
+                                !string.IsNullOrEmpty(worksheet.Cells[checkRij, 3].Text) ||
+                                !string.IsNullOrEmpty(worksheet.Cells[checkRij, 4].Text))
                             {
                                 isEchtEinde = false;
                                 break;
@@ -433,8 +433,8 @@ namespace QuattroFacturatieProgramma.Helpers
 
             try
             {
-                using var workbook = new XLWorkbook(_excelBestand);
-                var worksheet = workbook.Worksheet(JaarConfiguratie.RealisatieSheetNaam); // Dynamisch sheet naam
+                using var workbook = new ExcelPackage(new FileInfo(_excelBestand));
+                var worksheet = workbook.Workbook.Worksheets[JaarConfiguratie.RealisatieSheetNaam]; // Dynamisch sheet naam
 
                 int startRij = ZoekFactuurgegevensHeader(worksheet);
                 if (startRij == -1)
@@ -446,7 +446,7 @@ namespace QuattroFacturatieProgramma.Helpers
 
                 while (true)
                 {
-                    var celWaarde = worksheet.Cell(huidigeRij, 1).GetString().Trim();
+                    var celWaarde = worksheet.Cells[huidigeRij, 1].Text.Trim();
 
                     if (string.IsNullOrEmpty(celWaarde) ||
                         IsEindeVanLijst(celWaarde) ||
@@ -467,11 +467,11 @@ namespace QuattroFacturatieProgramma.Helpers
             return klanten;
         }
 
-        private int ZoekFactuurgegevensHeader(IXLWorksheet worksheet)
+        private int ZoekFactuurgegevensHeader(ExcelWorksheet worksheet)
         {
             for (int rij = 1; rij <= 20; rij++)
             {
-                var celWaarde = worksheet.Cell(rij, 1).GetString().ToLower();
+                var celWaarde = worksheet.Cells[rij, 1].Text.ToLower();
                 if (celWaarde.Contains("factuurgegevens"))
                 {
                     return rij;
@@ -486,11 +486,11 @@ namespace QuattroFacturatieProgramma.Helpers
             return eindeMarkers.Any(marker => waarde.ToLower().Contains(marker));
         }
 
-        private bool IsConsecutieveLegeCel(IXLWorksheet worksheet, int startRij, int kolom)
+        private bool IsConsecutieveLegeCel(ExcelWorksheet worksheet, int startRij, int kolom)
         {
             for (int i = 0; i < 3; i++)
             {
-                var celWaarde = worksheet.Cell(startRij + i, kolom).GetString().Trim();
+                var celWaarde = worksheet.Cells[startRij + i, kolom].Text.Trim();
                 if (!string.IsNullOrEmpty(celWaarde))
                 {
                     return false;

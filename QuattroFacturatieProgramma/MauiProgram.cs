@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Configuration;
 using QuattroFacturatieProgramma.ViewModels;
 using QuattroFacturatieProgramma.Helpers;
+using OfficeOpenXml;
 
 namespace QuattroFacturatieProgramma;
 
@@ -9,6 +10,7 @@ public static class MauiProgram
 {
     public static MauiApp CreateMauiApp()
     {
+        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()

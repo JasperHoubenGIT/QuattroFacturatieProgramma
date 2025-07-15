@@ -3,11 +3,15 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using QuattroFacturatieProgramma.Helpers;
 using QuattroFacturatieProgramma.ViewModels;
-using iTextSharp.text;
-using iTextSharp.text.pdf;
-using iTextFont = iTextSharp.text.Font;
-using iTextElement = iTextSharp.text.Element;
-using Document = iTextSharp.text.Document;
+using iText.Kernel.Pdf;
+using iText.Layout;
+using iText.Layout.Element;
+using iText.Layout.Properties;
+using iText.Kernel.Colors;
+using iText.Kernel.Font;
+using iText.IO.Font.Constants;
+using iText.Kernel.Geom;
+using Path = System.IO.Path;
 
 namespace QuattroFacturatieProgramma.Helpers
 {
@@ -126,20 +130,21 @@ namespace QuattroFacturatieProgramma.Helpers
         private async Task<string> GenereerPDFFactuurAsync(string klantNaam, string maand, double bedrag, string bestandsPad, string factuurnummer, string klantEmail = null)
         {
             using var stream = new FileStream(bestandsPad, FileMode.Create);
-            using var document = new Document(PageSize.A4, 50, 50, 50, 50);
-            var writer = PdfWriter.GetInstance(document, stream);
-            document.Open();
+            using var writer = new PdfWriter(stream);
+            using var pdf = new PdfDocument(writer);
+            using var document = new Document(pdf, PageSize.A4);
+            document.SetMargins(50, 50, 50, 50);
 
             // GEBRUIK DYNAMISCHE DATUM LOGICA
             var eersteVanMaand = JaarConfiguratie.BepaalEersteVanMaand(maand);
 
             // Fonts
-            var titelFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 20, BaseColor.DARK_GRAY);
-            var bedrijfsFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 14, BaseColor.DARK_GRAY);
-            var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 12, BaseColor.BLACK);
-            var normalFont = FontFactory.GetFont(FontFactory.HELVETICA, 10, BaseColor.BLACK);
-            var kleinFont = FontFactory.GetFont(FontFactory.HELVETICA, 9, BaseColor.DARK_GRAY);
-            var accentFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 11, BaseColor.WHITE);
+            var titelFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var bedrijfsFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var headerFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var normalFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            var kleinFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            var accentFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
 
             // BEREKEN TOTAAL UREN ÉÉN KEER
             double totaalUren = PdfHelper.BerekenTotaalUren(klantNaam, maand, _klantHelper);
@@ -195,7 +200,7 @@ namespace QuattroFacturatieProgramma.Helpers
                 titelFont, bedrijfsFont, headerFont, normalFont, kleinFont, accentFont, qrCodeBytes, paymentId, logoBytes, _klantHelper, totaalUren);
 
             // Nieuwe pagina voor urenverantwoording
-            document.NewPage();
+            document.Add(new AreaBreak(AreaBreakType.NEXT_PAGE));
 
             // Genereer urenverantwoording pagina MET dezelfde totaal uren
             PdfHelper.MaakUrenverantwoordingPagina(document, maand, klantNaam, headerFont, normalFont, kleinFont, accentFont, _klantHelper, totaalUren);
@@ -433,20 +438,21 @@ namespace QuattroFacturatieProgramma.Helpers
             string factuurnummer, string klantEmail, double totaalUren)
         {
             using var stream = new FileStream(bestandsPad, FileMode.Create);
-            using var document = new Document(PageSize.A4, 50, 50, 50, 50);
-            var writer = PdfWriter.GetInstance(document, stream);
-            document.Open();
+            using var writer = new PdfWriter(stream);
+            using var pdf = new PdfDocument(writer);
+            using var document = new Document(pdf, PageSize.A4);
+            document.SetMargins(50, 50, 50, 50);
 
             // GEBRUIK DYNAMISCHE DATUM LOGICA
             var eersteVanMaand = JaarConfiguratie.BepaalEersteVanMaand(maand);
 
             // Fonts
-            var titelFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 20, BaseColor.DARK_GRAY);
-            var bedrijfsFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 14, BaseColor.DARK_GRAY);
-            var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 12, BaseColor.BLACK);
-            var normalFont = FontFactory.GetFont(FontFactory.HELVETICA, 10, BaseColor.BLACK);
-            var kleinFont = FontFactory.GetFont(FontFactory.HELVETICA, 9, BaseColor.DARK_GRAY);
-            var accentFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 11, BaseColor.WHITE);
+            var titelFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var bedrijfsFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var headerFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var normalFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            var kleinFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            var accentFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
 
             // Genereer QR-code voor betaling
             byte[] qrCodeBytes = null;
@@ -502,7 +508,7 @@ namespace QuattroFacturatieProgramma.Helpers
                 titelFont, bedrijfsFont, headerFont, normalFont, kleinFont, accentFont, qrCodeBytes, paymentId, logoBytes, _klantHelper, totaalUren);
 
             // Nieuwe pagina voor urenverantwoording
-            document.NewPage();
+            document.Add(new AreaBreak(AreaBreakType.NEXT_PAGE));
 
             // Genereer urenverantwoording pagina MET dezelfde vooraf berekende totaal uren
             PdfHelper.MaakUrenverantwoordingPagina(document, maand, klantNaam, headerFont, normalFont, kleinFont, accentFont, _klantHelper, totaalUren);

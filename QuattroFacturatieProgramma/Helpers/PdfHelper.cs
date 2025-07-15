@@ -1,12 +1,24 @@
-﻿using iTextSharp.text;
-using iTextSharp.text.pdf;
-using iTextSharp.text.pdf.draw;
-using iTextFont = iTextSharp.text.Font;
-using iTextElement = iTextSharp.text.Element;
-using iTextImage = iTextSharp.text.Image;
-using System.Reflection;
-using Element = iTextSharp.text.Element;
+﻿using System.Reflection;
 using static QuattroFacturatieProgramma.Helpers.KlantHelper;
+using iText.Kernel.Pdf;
+using iText.Layout;
+using iText.Layout.Element;
+using iText.Layout.Properties;
+using iText.Kernel.Colors;
+using iText.Kernel.Font;
+using iText.IO.Font.Constants;
+using iText.Kernel.Geom;
+using iText.IO.Image;
+using iText.Layout.Borders;
+using iText.Layout.Renderer;
+using iText.Kernel.Pdf.Canvas.Draw;
+using SystemPath = System.IO.Path;
+using VerticalAlignment = iText.Layout.Properties.VerticalAlignment;
+using Border = iText.Layout.Borders.Border;
+using Cell = iText.Layout.Element.Cell;
+using TextAlignment = iText.Layout.Properties.TextAlignment;
+using HorizontalAlignment = iText.Layout.Properties.HorizontalAlignment;
+using Image = iText.Layout.Element.Image;
 
 namespace QuattroFacturatieProgramma.Helpers
 {
@@ -45,32 +57,29 @@ namespace QuattroFacturatieProgramma.Helpers
         }
 
         public static async Task MaakFactuurPaginaAsync(Document document, string klantNaam, string maand, double bedrag,
-            string factuurnummer, DateTime eersteVanMaand, iTextFont titelFont, iTextFont bedrijfsFont,
-            iTextFont headerFont, iTextFont normalFont, iTextFont kleinFont, iTextFont accentFont,
+            string factuurnummer, DateTime eersteVanMaand, PdfFont titelFont, PdfFont bedrijfsFont,
+            PdfFont headerFont, PdfFont normalFont, PdfFont kleinFont, PdfFont accentFont,
             byte[] qrCodeBytes, string paymentId, byte[] logoBytes = null, KlantHelper klantHelper = null,
             double totaalUren = 0)
         {
-            // Headerlijn
-            var headerLijn = new LineSeparator(2f, 100f, BaseColor.DARK_GRAY, iTextElement.ALIGN_CENTER, -2);
-            document.Add(headerLijn);
-            document.Add(new Paragraph(" "));
+            // ===== HEADER SECTIE =====
+            document.Add(new LineSeparator(new SolidLine(2f))
+                .SetStrokeColor(ColorConstants.DARK_GRAY)
+                .SetMarginBottom(10));
 
             // Haal klant-specifieke gegevens op
             KlantNAWGegevens klantNAW = null;
-            double uurtarief = 00.00; // Default
+            double uurtarief = 107.50;
 
             if (klantHelper != null)
             {
                 try
                 {
                     klantNAW = klantHelper.HaalKlantNAWGegevensOp(klantNaam);
-
-                    // Gebruik klant-specifiek uurtarief
                     if (klantNAW != null)
                     {
                         uurtarief = klantNAW.PrijsPerUur;
                     }
-
                     Console.WriteLine($"💰 Klant: {klantNaam} | Uurtarief: €{uurtarief} | Totaal uren {maand}: {totaalUren}");
                 }
                 catch (Exception ex)
@@ -79,95 +88,143 @@ namespace QuattroFacturatieProgramma.Helpers
                 }
             }
 
-            // Bedrijfsgegevens tabel
-            var bedrijfsTabel = new PdfPTable(2) { WidthPercentage = 100 };
-            bedrijfsTabel.SetWidths(new float[] { 55f, 45f });
+            // ===== BEDRIJFSGEGEVENS SECTIE - VEEL PLATTER =====
+            var bedrijfsTabel = new Table(UnitValue.CreatePercentArray(new float[] { 50f, 50f }))
+                .SetWidth(UnitValue.CreatePercentValue(100))
+                .SetMarginBottom(15);
 
-            // Klant adres cell - GEBRUIK KLANT-SPECIFIEKE NAW GEGEVENS
-            var klantCell = new PdfPCell
-            {
-                Border = Rectangle.NO_BORDER,
-                BackgroundColor = new BaseColor(248, 248, 248),
-                Padding = 15,
-                VerticalAlignment = iTextElement.ALIGN_TOP
-            };
+            // Klant adres cell - LINKS MET GRIJS VAK
+            var klantCell = new Cell()
+                .SetBorder(Border.NO_BORDER)
+                .SetBackgroundColor(new DeviceRgb(248, 248, 248))
+                .SetPadding(10)
+                .SetVerticalAlignment(VerticalAlignment.TOP);
 
-            klantCell.AddElement(new Paragraph("FACTUURADRES", FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 9, BaseColor.DARK_GRAY)));
-            klantCell.AddElement(new Paragraph(" ", kleinFont));
+            klantCell.Add(new Paragraph("FACTUURADRES")
+                .SetFont(PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD))
+                .SetFontSize(9)
+                .SetFontColor(ColorConstants.DARK_GRAY)
+                .SetMarginBottom(5));
 
-            // Gebruik klant-specifieke NAW gegevens of fallback
             if (klantNAW != null)
             {
-                klantCell.AddElement(new Paragraph(klantNAW.Naam, headerFont));
-                klantCell.AddElement(new Paragraph(klantNAW.Adres, normalFont));
-                klantCell.AddElement(new Paragraph(klantNAW.Straat, normalFont));
-                klantCell.AddElement(new Paragraph($"{klantNAW.Postcode} {klantNAW.Stad}", normalFont));
+                klantCell.Add(new Paragraph(klantNAW.Naam)
+                    .SetFont(headerFont)
+                    .SetFontSize(10)
+                    .SetMarginBottom(1));
+                klantCell.Add(new Paragraph(klantNAW.Adres)
+                    .SetFont(normalFont)
+                    .SetFontSize(9)
+                    .SetMarginBottom(1));
+                klantCell.Add(new Paragraph(klantNAW.Straat)
+                    .SetFont(normalFont)
+                    .SetFontSize(9)
+                    .SetMarginBottom(1));
+                klantCell.Add(new Paragraph($"{klantNAW.Postcode} {klantNAW.Stad}")
+                    .SetFont(normalFont)
+                    .SetFontSize(9));
             }
             else
             {
-                // Fallback naar standaard adres
-                klantCell.AddElement(new Paragraph(klantNaam, headerFont));
-                klantCell.AddElement(new Paragraph("T.a.v. de heer G.P.J. Houben", normalFont));
-                klantCell.AddElement(new Paragraph("Willinkhof 3", normalFont));
-                klantCell.AddElement(new Paragraph("6006 RG Weert", normalFont));
+                klantCell.Add(new Paragraph(klantNaam)
+                    .SetFont(headerFont)
+                    .SetFontSize(10)
+                    .SetMarginBottom(1));
+                klantCell.Add(new Paragraph("T.a.v. de heer G.P.J. Houben")
+                    .SetFont(normalFont)
+                    .SetFontSize(9)
+                    .SetMarginBottom(1));
+                klantCell.Add(new Paragraph("Willinkhof 3")
+                    .SetFont(normalFont)
+                    .SetFontSize(9)
+                    .SetMarginBottom(1));
+                klantCell.Add(new Paragraph("6006 RG Weert")
+                    .SetFont(normalFont)
+                    .SetFontSize(9));
             }
 
             bedrijfsTabel.AddCell(klantCell);
 
-            // Bedrijfs info cell
-            var bedrijfsCell = new PdfPCell
-            {
-                Border = Rectangle.NO_BORDER,
-                HorizontalAlignment = iTextElement.ALIGN_RIGHT,
-                Padding = 15,
-                VerticalAlignment = iTextElement.ALIGN_TOP
-            };
+            // Bedrijfs info cell - RECHTS - VEEL PLATTER
+            var bedrijfsCell = new Cell()
+                .SetBorder(Border.NO_BORDER)
+                .SetTextAlignment(TextAlignment.LEFT)
+                .SetPadding(10)
+                .SetVerticalAlignment(VerticalAlignment.TOP);
 
-            // Logo toevoegen als beschikbaar
+            // Logo of QUATTRO styling - kleiner
             if (logoBytes != null && logoBytes.Length > 0)
             {
                 try
                 {
-                    var logo = iTextImage.GetInstance(logoBytes);
-                    logo.ScaleToFit(120f, 40f);
-                    logo.Alignment = iTextElement.ALIGN_LEFT;
-                    bedrijfsCell.AddElement(logo);
-                    bedrijfsCell.AddElement(new Paragraph(" ", kleinFont));
+                    var logo = new Image(ImageDataFactory.Create(logoBytes))
+                        .SetWidth(100)
+                        .SetHeight(30)
+                        .SetMarginBottom(3);
+                    bedrijfsCell.Add(logo);
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Kon logo niet laden: {ex.Message}");
-                    // Fallback naar styled tekst
-                    bedrijfsCell.AddElement(CreateQuattroStyledParagraph(bedrijfsFont));
+                    bedrijfsCell.Add(CreateQuattroStyledParagraph(bedrijfsFont).SetMarginBottom(3));
                 }
             }
             else
             {
-                // Styled QUATTRO tekst als fallback
-                bedrijfsCell.AddElement(CreateQuattroStyledParagraph(bedrijfsFont));
+                bedrijfsCell.Add(CreateQuattroStyledParagraph(bedrijfsFont).SetMarginBottom(3));
             }
 
-            bedrijfsCell.AddElement(new Paragraph("BOUW & VASTGOED ADVIES BV", normalFont));
-            bedrijfsCell.AddElement(new Paragraph("Willinkhof 3", normalFont));
-            bedrijfsCell.AddElement(new Paragraph("6006 RG Weert", normalFont));
-            bedrijfsCell.AddElement(new Paragraph(" ", kleinFont));
-            bedrijfsCell.AddElement(new Paragraph("www.quattrobouwenenvastgoedadvies.nl", kleinFont));
-            bedrijfsCell.AddElement(new Paragraph("info@quattrobouwenenvastgoedadvies.nl", kleinFont));
-            bedrijfsCell.AddElement(new Paragraph("KvK: 75108542", kleinFont));
-            bedrijfsCell.AddElement(new Paragraph("BTW: NL860145438B01", kleinFont));
+            // Alles veel dichter op elkaar
+            bedrijfsCell.Add(new Paragraph("BOUW & VASTGOED ADVIES BV")
+                .SetFont(headerFont)
+                .SetFontSize(10)
+                .SetMarginBottom(2));
+
+            bedrijfsCell.Add(new Paragraph("Willinkhof 3")
+                .SetFont(normalFont)
+                .SetFontSize(9)
+                .SetMarginBottom(0));
+            bedrijfsCell.Add(new Paragraph("6006 RG Weert")
+                .SetFont(normalFont)
+                .SetFontSize(9)
+                .SetMarginBottom(3));
+
+            bedrijfsCell.Add(new Paragraph("www.quattrobouwenenvastgoedadvies.nl")
+                .SetFont(kleinFont)
+                .SetFontSize(8)
+                .SetMarginBottom(0));
+            bedrijfsCell.Add(new Paragraph("info@quattrobouwenenvastgoedadvies.nl")
+                .SetFont(kleinFont)
+                .SetFontSize(8)
+                .SetMarginBottom(2));
+
+            bedrijfsCell.Add(new Paragraph("KvK: 75108542")
+                .SetFont(kleinFont)
+                .SetFontSize(8)
+                .SetMarginBottom(0));
+            bedrijfsCell.Add(new Paragraph("BTW: NL860145438B01")
+                .SetFont(kleinFont)
+                .SetFontSize(8));
+
             bedrijfsTabel.AddCell(bedrijfsCell);
-
             document.Add(bedrijfsTabel);
-            document.Add(new Paragraph(" "));
 
-            // Factuur titel
-            document.Add(new Paragraph("FACTUUR", titelFont) { SpacingAfter = 5f });
-            document.Add(new LineSeparator(1f, 30f, BaseColor.DARK_GRAY, iTextElement.ALIGN_LEFT, -2));
-            document.Add(new Paragraph(" "));
+            // ===== FACTUUR TITEL SECTIE =====
+            document.Add(new Paragraph("FACTUUR")
+                .SetFont(titelFont)
+                .SetFontSize(18)
+                .SetFontColor(ColorConstants.DARK_GRAY)
+                .SetMarginBottom(3));
 
-            // Factuur info tabel (zonder PERIODE)
-            var factuurInfoTabel = new PdfPTable(3) { WidthPercentage = 100 };
-            factuurInfoTabel.SetWidths(new float[] { 33f, 33f, 34f });
+            document.Add(new LineSeparator(new SolidLine(1f))
+                .SetStrokeColor(ColorConstants.DARK_GRAY)
+                .SetWidth(UnitValue.CreatePercentValue(25))
+                .SetMarginBottom(15));
+
+            // ===== FACTUUR INFO SECTIE =====
+            var factuurInfoTabel = new Table(UnitValue.CreatePercentArray(new float[] { 33f, 33f, 34f }))
+                .SetWidth(UnitValue.CreatePercentValue(100))
+                .SetMarginBottom(20);
 
             string[] labels = { "FACTUURDATUM", "FACTUURNUMMER", "VERVALDATUM" };
             string[] waarden = {
@@ -179,130 +236,176 @@ namespace QuattroFacturatieProgramma.Helpers
             // Headers
             foreach (var label in labels)
             {
-                factuurInfoTabel.AddCell(new PdfPCell(new Phrase(label, FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 9, BaseColor.DARK_GRAY)))
-                {
-                    Border = Rectangle.NO_BORDER,
-                    BackgroundColor = new BaseColor(248, 248, 248),
-                    Padding = 8
-                });
+                factuurInfoTabel.AddCell(new Cell()
+                    .SetBorder(Border.NO_BORDER)
+                    .SetBackgroundColor(new DeviceRgb(245, 245, 245))
+                    .SetPadding(12)
+                    .Add(new Paragraph(label)
+                        .SetFont(PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD))
+                        .SetFontSize(10)
+                        .SetFontColor(ColorConstants.DARK_GRAY)));
             }
 
             // Waarden
             foreach (var value in waarden)
             {
-                factuurInfoTabel.AddCell(new PdfPCell(new Phrase(value, normalFont))
-                {
-                    Border = Rectangle.NO_BORDER,
-                    Padding = 8
-                });
+                factuurInfoTabel.AddCell(new Cell()
+                    .SetBorder(Border.NO_BORDER)
+                    .SetPadding(12)
+                    .Add(new Paragraph(value)
+                        .SetFont(normalFont)
+                        .SetFontSize(11)));
             }
 
             document.Add(factuurInfoTabel);
-            document.Add(new Paragraph(" "));
 
-            // Factuurregels tabel
-            var table = new PdfPTable(4) { WidthPercentage = 100 };
-            table.SetWidths(new float[] { 40f, 20f, 20f, 20f });
+            // ===== FACTUURREGELS SECTIE =====
+            var table = new Table(UnitValue.CreatePercentArray(new float[] { 45f, 15f, 20f, 20f }))
+                .SetWidth(UnitValue.CreatePercentValue(100))
+                .SetMarginBottom(15);
 
-            var headerColor = new BaseColor(60, 60, 60);
-            table.AddCell(CreateHeaderCell("OMSCHRIJVING", accentFont, headerColor));
-            table.AddCell(CreateHeaderCell("AANTAL", accentFont, headerColor, iTextElement.ALIGN_CENTER));
-            table.AddCell(CreateHeaderCell("TARIEF", accentFont, headerColor, iTextElement.ALIGN_RIGHT));
-            table.AddCell(CreateHeaderCell("BEDRAG", accentFont, headerColor, iTextElement.ALIGN_RIGHT));
+            var headerColor = new DeviceRgb(50, 50, 50);
+            table.AddHeaderCell(CreateHeaderCell("OMSCHRIJVING", accentFont, headerColor));
+            table.AddHeaderCell(CreateHeaderCell("AANTAL", accentFont, headerColor, TextAlignment.CENTER));
+            table.AddHeaderCell(CreateHeaderCell("TARIEF", accentFont, headerColor, TextAlignment.RIGHT));
+            table.AddHeaderCell(CreateHeaderCell("BEDRAG", accentFont, headerColor, TextAlignment.RIGHT));
 
-            // Factuurregels - MET KLANT-SPECIFIEKE GEGEVENS
+            // Factuurregels
             table.AddCell(CreateDataCell($"Advieswerkzaamheden {maand} {JaarConfiguratie.BepaalJaarVoorMaand(maand)}", normalFont));
-            table.AddCell(CreateDataCell(FormateerUrenWaarde(totaalUren), normalFont, iTextElement.ALIGN_CENTER)); // TOTAAL UREN
-            table.AddCell(CreateDataCell($"€ {uurtarief:N2}", normalFont, iTextElement.ALIGN_RIGHT)); // KLANT-SPECIFIEK TARIEF
-            table.AddCell(CreateDataCell($"€ {bedrag:N2}", normalFont, iTextElement.ALIGN_RIGHT));
+            table.AddCell(CreateDataCell(FormateerUrenWaarde(totaalUren), normalFont, TextAlignment.CENTER));
+            table.AddCell(CreateDataCell($"€ {uurtarief:N2}", normalFont, TextAlignment.RIGHT));
+            table.AddCell(CreateDataCell($"€ {bedrag:N2}", normalFont, TextAlignment.RIGHT));
 
             document.Add(table);
-            document.Add(new Paragraph(" "));
 
-            // Totalen berekenen
+            // ===== TOTALEN SECTIE =====
             double btw = bedrag * 0.21;
             double totaal = bedrag + btw;
 
-            // Totalen tabel
-            var totaalTabel = new PdfPTable(2) { WidthPercentage = 45, HorizontalAlignment = iTextElement.ALIGN_RIGHT };
-            totaalTabel.AddCell(CreateTotalCell("Subtotaal", normalFont));
-            totaalTabel.AddCell(CreateTotalCell($"€ {bedrag:N2}", normalFont, iTextElement.ALIGN_RIGHT));
-            totaalTabel.AddCell(CreateTotalCell("BTW 21%", normalFont));
-            totaalTabel.AddCell(CreateTotalCell($"€ {btw:N2}", normalFont, iTextElement.ALIGN_RIGHT));
-            totaalTabel.AddCell(CreateTotalCell("TOTAAL", headerFont));
-            totaalTabel.AddCell(CreateTotalCell($"€ {totaal:N2}", headerFont, iTextElement.ALIGN_RIGHT));
+            var totaalTabel = new Table(2)
+                .SetWidth(UnitValue.CreatePercentValue(40))
+                .SetHorizontalAlignment(HorizontalAlignment.RIGHT)
+                .SetMarginBottom(25);
+
+            totaalTabel.AddCell(CreateTotalCell("Subtotaal", normalFont, TextAlignment.LEFT));
+            totaalTabel.AddCell(CreateTotalCell($"€ {bedrag:N2}", normalFont, TextAlignment.RIGHT));
+            totaalTabel.AddCell(CreateTotalCell("BTW 21%", normalFont, TextAlignment.LEFT));
+            totaalTabel.AddCell(CreateTotalCell($"€ {btw:N2}", normalFont, TextAlignment.RIGHT));
+
+            // Totaal regel met meer emphasis
+            totaalTabel.AddCell(new Cell()
+                .SetBorderTop(new SolidBorder(ColorConstants.DARK_GRAY, 2))
+                .SetBorderBottom(new SolidBorder(ColorConstants.DARK_GRAY, 2))
+                .SetBorderLeft(Border.NO_BORDER)
+                .SetBorderRight(Border.NO_BORDER)
+                .SetPadding(15)
+                .SetBackgroundColor(new DeviceRgb(240, 240, 240))
+                .Add(new Paragraph("TOTAAL")
+                    .SetFont(headerFont)
+                    .SetFontSize(12)
+                    .SetFontColor(ColorConstants.DARK_GRAY)));
+
+            totaalTabel.AddCell(new Cell()
+                .SetBorderTop(new SolidBorder(ColorConstants.DARK_GRAY, 2))
+                .SetBorderBottom(new SolidBorder(ColorConstants.DARK_GRAY, 2))
+                .SetBorderLeft(Border.NO_BORDER)
+                .SetBorderRight(Border.NO_BORDER)
+                .SetPadding(15)
+                .SetTextAlignment(TextAlignment.RIGHT)
+                .SetBackgroundColor(new DeviceRgb(240, 240, 240))
+                .Add(new Paragraph($"€ {totaal:N2}")
+                    .SetFont(headerFont)
+                    .SetFontSize(12)
+                    .SetFontColor(ColorConstants.DARK_GRAY)));
 
             document.Add(totaalTabel);
-            document.Add(new Paragraph(" "));
 
-            // Betalingsvoorwaarden
-            document.Add(new Paragraph("BETALINGSVOORWAARDEN", FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 11, BaseColor.DARK_GRAY))
-            {
-                SpacingBefore = 20f
-            });
-            document.Add(new LineSeparator(1f, 100f, BaseColor.LIGHT_GRAY, iTextElement.ALIGN_LEFT, -2));
-            document.Add(new Paragraph(" "));
+            // ===== BETALINGSVOORWAARDEN SECTIE =====
+            document.Add(new Paragraph("BETALINGSVOORWAARDEN")
+                .SetFont(PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD))
+                .SetFontSize(12)
+                .SetFontColor(ColorConstants.DARK_GRAY)
+                .SetMarginBottom(7));
+
+            document.Add(new LineSeparator(new SolidLine(1f))
+                .SetStrokeColor(ColorConstants.LIGHT_GRAY)
+                .SetMarginBottom(7));
 
             // Betalings info met QR-code
-            var betalingsTabel = new PdfPTable(2) { WidthPercentage = 100 };
-            betalingsTabel.SetWidths(new float[] { 65f, 35f });
+            var betalingsTabel = new Table(UnitValue.CreatePercentArray(new float[] { 65f, 35f }))
+                .SetWidth(UnitValue.CreatePercentValue(100));
 
-            // Betalingsinfo
-            var betalingsInfo = new PdfPCell
-            {
-                Border = Rectangle.NO_BORDER,
-                Padding = 5,
-                VerticalAlignment = iTextElement.ALIGN_TOP
-            };
-            betalingsInfo.AddElement(new Paragraph("Gelieve het totaalbedrag binnen 14 dagen over te maken:", normalFont));
-            betalingsInfo.AddElement(new Paragraph("IBAN: NL30 RABO 0347 6704 07", headerFont));
+            var betalingsInfo = new Cell()
+                .SetBorder(Border.NO_BORDER)
+                .SetPadding(2)
+                .SetVerticalAlignment(VerticalAlignment.TOP);
 
-            // Styled Quattro tekst gebruiken
-            var quattroPhrase = CreateQuattroStyledPhrase(normalFont);
-            var quattroParagraph = new Paragraph();
-            quattroParagraph.Add(new Chunk("T.n.v. ", normalFont));
-            quattroParagraph.Add(quattroPhrase);
-            betalingsInfo.AddElement(quattroParagraph);
-            betalingsInfo.AddElement(new Paragraph($"O.v.v. Factuurnummer {factuurnummer}", normalFont));
-            betalingsInfo.AddElement(new Paragraph("Of scan de QR-code om direct te betalen →", kleinFont));
+            betalingsInfo.Add(new Paragraph("Gelieve het totaalbedrag binnen 14 dagen over te maken:")
+                .SetFont(normalFont)
+                .SetFontSize(10));
+            // .SetMarginBottom(2));
+
+            betalingsInfo.Add(new Paragraph("IBAN: NL30 RABO 0347 6704 07")
+                .SetFont(headerFont)
+                .SetFontSize(10));
+            //  .SetMarginBottom(2));
+
+            // Styled Quattro tekst
+            var quattroParagraph = new Paragraph()
+                .SetFontSize(10);
+               // .SetMarginBottom(2);
+            quattroParagraph.Add(new Text("T.n.v. ").SetFont(normalFont));
+            AddQuattroStyledPhrase(quattroParagraph, normalFont);
+            betalingsInfo.Add(quattroParagraph);
+
+            betalingsInfo.Add(new Paragraph($"O.v.v. Factuurnummer {factuurnummer}")
+                .SetFont(normalFont)
+                .SetFontSize(10));
+            // .SetMarginBottom(2));
+
+            betalingsInfo.Add(new Paragraph("Of scan de QR-code om direct te betalen →")
+                .SetFont(kleinFont)
+                .SetFontSize(9));
+                //.SetMarginBottom(2));
 
             if (!string.IsNullOrWhiteSpace(paymentId))
-                betalingsInfo.AddElement(new Paragraph($"Payment ID: {paymentId}", kleinFont));
+                betalingsInfo.Add(new Paragraph($"Payment ID: {paymentId}")
+                    .SetFont(kleinFont)
+                    .SetFontSize(9));
 
             betalingsTabel.AddCell(betalingsInfo);
 
             // QR-code
-            var qrCell = new PdfPCell
-            {
-                Border = Rectangle.NO_BORDER,
-                Padding = 10,
-                HorizontalAlignment = iTextElement.ALIGN_CENTER,
-                VerticalAlignment = iTextElement.ALIGN_MIDDLE
-            };
+            var qrCell = new Cell()
+                .SetBorder(Border.NO_BORDER)
+                .SetPadding(2)
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetVerticalAlignment(VerticalAlignment.MIDDLE);
 
             if (qrCodeBytes != null && qrCodeBytes.Length > 0)
             {
                 try
                 {
-                    var qrImage = iTextImage.GetInstance(qrCodeBytes);
-                    qrImage.ScaleToFit(100f, 100f);
-                    qrImage.Alignment = iTextElement.ALIGN_CENTER;
-                    qrCell.AddElement(qrImage);
-                    qrCell.AddElement(new Paragraph("Scan om te betalen", kleinFont)
-                    {
-                        Alignment = iTextElement.ALIGN_CENTER,
-                        SpacingBefore = 5f
-                    });
+                    var qrImage = new Image(ImageDataFactory.Create(qrCodeBytes))
+                        .SetWidth(100)
+                        .SetHeight(100);
+                    qrCell.Add(qrImage);
+                    qrCell.Add(new Paragraph("Scan om te betalen")
+                        .SetFont(kleinFont)
+                        .SetTextAlignment(TextAlignment.CENTER)
+                        .SetMarginTop(2));
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Fout bij toevoegen QR-code: {ex.Message}");
-                    qrCell.AddElement(new Paragraph("QR-code niet beschikbaar", kleinFont));
+                    qrCell.Add(new Paragraph("QR-code niet beschikbaar")
+                        .SetFont(kleinFont));
                 }
             }
             else
             {
-                qrCell.AddElement(new Paragraph("QR-code niet beschikbaar", kleinFont));
+                qrCell.Add(new Paragraph("QR-code niet beschikbaar")
+                    .SetFont(kleinFont));
             }
 
             betalingsTabel.AddCell(qrCell);
@@ -310,32 +413,49 @@ namespace QuattroFacturatieProgramma.Helpers
         }
 
         public static void MaakUrenverantwoordingPagina(Document document, string maand, string klantNaam,
-            iTextFont headerFont, iTextFont normalFont, iTextFont kleinFont, iTextFont accentFont,
+            PdfFont headerFont, PdfFont normalFont, PdfFont kleinFont, PdfFont accentFont,
             KlantHelper klantHelper = null, double totaalUren = 0)
         {
-            // Header lijn
-            var headerLijn = new LineSeparator(2f, 100f, BaseColor.DARK_GRAY, iTextElement.ALIGN_CENTER, -2);
-            document.Add(headerLijn);
-            document.Add(new Paragraph(" "));
+            // ===== HEADER SECTIE =====
+            document.Add(new LineSeparator(new SolidLine(2f))
+                .SetStrokeColor(ColorConstants.DARK_GRAY)
+                .SetMarginBottom(15));
 
-            // Titel
-            document.Add(new Paragraph("URENVERANTWOORDING", FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 18, BaseColor.DARK_GRAY)));
-            document.Add(new LineSeparator(1f, 40f, BaseColor.DARK_GRAY, iTextElement.ALIGN_LEFT, -2));
-            document.Add(new Paragraph(" "));
+            // ===== TITEL SECTIE =====
+            document.Add(new Paragraph("URENVERANTWOORDING")
+                .SetFont(PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD))
+                .SetFontSize(18)
+                .SetFontColor(ColorConstants.DARK_GRAY)
+                .SetMarginBottom(10));
 
-            document.Add(new Paragraph($"Periode: {maand} {JaarConfiguratie.BepaalJaarVoorMaand(maand)}", normalFont));
-            document.Add(new Paragraph($"Klant: {klantNaam}", normalFont));
-            document.Add(new Paragraph(" "));
+            document.Add(new LineSeparator(new SolidLine(1f))
+                .SetStrokeColor(ColorConstants.DARK_GRAY)
+                .SetWidth(UnitValue.CreatePercentValue(35))
+                .SetMarginBottom(10));
 
-            // Uren tabel - KOLOMBREEDTE AANGEPAST
-            var urenTabel = new PdfPTable(4) { WidthPercentage = 100 };
-            urenTabel.SetWidths(new float[] { 12f, 48f, 15f, 25f }); // UREN kolom breder
+            // ===== INFO SECTIE =====
+            document.Add(new Paragraph($"Periode: {maand} {JaarConfiguratie.BepaalJaarVoorMaand(maand)}")
+                .SetFont(normalFont)
+                .SetFontSize(11)
+                .SetMarginTop(0)
+                .SetMarginBottom(0));
 
-            var headerColor = new BaseColor(60, 60, 60);
-            urenTabel.AddCell(CreateHeaderCell("DATUM", accentFont, headerColor));
-            urenTabel.AddCell(CreateHeaderCell("WERKZAAMHEDEN", accentFont, headerColor));
-            urenTabel.AddCell(CreateHeaderCell("UREN", accentFont, headerColor, iTextElement.ALIGN_CENTER));
-            urenTabel.AddCell(CreateHeaderCell("OPMERKINGEN", accentFont, headerColor));
+            document.Add(new Paragraph($"Klant: {klantNaam}")
+                .SetFont(normalFont)
+                .SetFontSize(11)
+                .SetMarginTop(0)
+                .SetMarginBottom(10));
+
+            // ===== UREN TABEL SECTIE =====
+            var urenTabel = new Table(UnitValue.CreatePercentArray(new float[] { 12f, 48f, 15f, 25f }))
+                .SetWidth(UnitValue.CreatePercentValue(100))
+                .SetMarginBottom(0);
+
+            var headerColor = new DeviceRgb(50, 50, 50);
+            urenTabel.AddHeaderCell(CreateHeaderCell("DATUM", accentFont, headerColor));
+            urenTabel.AddHeaderCell(CreateHeaderCell("WERKZAAMHEDEN", accentFont, headerColor));
+            urenTabel.AddHeaderCell(CreateHeaderCell("UREN", accentFont, headerColor, TextAlignment.CENTER));
+            urenTabel.AddHeaderCell(CreateHeaderCell("OPMERKINGEN", accentFont, headerColor));
 
             // Probeer klant-specifieke urenverantwoording op te halen
             List<UrenRegel> urenRegels = null;
@@ -352,61 +472,101 @@ namespace QuattroFacturatieProgramma.Helpers
                 }
             }
 
-            // GEBRUIK KLANT-SPECIFIEKE EN MAAND-GEFILTERDE URENVERANTWOORDING
             if (urenRegels != null && urenRegels.Count > 0)
             {
                 foreach (var regel in urenRegels)
                 {
                     urenTabel.AddCell(CreateDataCell(regel.Datum, normalFont));
                     urenTabel.AddCell(CreateDataCell(regel.Werkzaamheden, normalFont));
-                    urenTabel.AddCell(CreateDataCell(regel.Uren, normalFont, iTextElement.ALIGN_CENTER));
+                    urenTabel.AddCell(CreateDataCell(regel.Uren, normalFont, TextAlignment.CENTER));
                     string opmerkingen = regel.Opmerkingen == "Conform opdracht" ? "" : regel.Opmerkingen;
                     urenTabel.AddCell(CreateDataCell(opmerkingen, kleinFont));
                 }
 
                 document.Add(urenTabel);
-                document.Add(new Paragraph(" "));
 
-                // Totaal uren - GEBRUIK MEEGEGEVEN WAARDE
-                var totaalTabel = new PdfPTable(2) { WidthPercentage = 35, HorizontalAlignment = iTextElement.ALIGN_RIGHT };
-                totaalTabel.AddCell(CreateTotalCell("TOTAAL UREN", headerFont));
-                totaalTabel.AddCell(CreateTotalCell(FormateerUrenWaarde(totaalUren), headerFont, iTextElement.ALIGN_CENTER));
+                // ===== TOTAAL UREN SECTIE =====
+                var totaalTabel = new Table(2)
+                    .SetWidth(UnitValue.CreatePercentValue(40))
+                    .SetHorizontalAlignment(HorizontalAlignment.RIGHT)
+                    .SetMarginBottom(15);
 
-                Console.WriteLine($"✅ Totaal uren gebruikt in PDF: {FormateerUrenWaarde(totaalUren)}");
+                totaalTabel.AddCell(new Cell()
+                    .SetBorderTop(new SolidBorder(ColorConstants.DARK_GRAY, 2))
+                    .SetBorderBottom(Border.NO_BORDER)
+                    .SetBorderLeft(Border.NO_BORDER)
+                    .SetBorderRight(Border.NO_BORDER)
+                    .SetPadding(10)
+                    .SetBackgroundColor(new DeviceRgb(245, 245, 245))
+                    .Add(new Paragraph("TOTAAL UREN")
+                        .SetFont(headerFont)
+                        .SetFontSize(12)));
+
+                totaalTabel.AddCell(new Cell()
+                    .SetBorderTop(new SolidBorder(ColorConstants.DARK_GRAY, 2))
+                    .SetBorderBottom(Border.NO_BORDER)
+                    .SetBorderLeft(Border.NO_BORDER)
+                    .SetBorderRight(Border.NO_BORDER)
+                    .SetPadding(10)
+                    .SetTextAlignment(TextAlignment.CENTER)
+                    .SetBackgroundColor(new DeviceRgb(245, 245, 245))
+                    .Add(new Paragraph(FormateerUrenWaarde(totaalUren))
+                        .SetFont(headerFont)
+                        .SetFontSize(12)));
 
                 document.Add(totaalTabel);
+                Console.WriteLine($"✅ Totaal uren gebruikt in PDF: {FormateerUrenWaarde(totaalUren)}");
             }
             else
             {
                 // Fallback naar standaard regel
                 Console.WriteLine($"⚠️ Geen uren gevonden voor {klantNaam} in {maand}, gebruik fallback");
 
-                urenTabel.AddCell(CreateDataCell("20-mei", normalFont));
-                urenTabel.AddCell(CreateDataCell("Reactie naar architect met onderbouwing adviesrapport", normalFont));
-                urenTabel.AddCell(CreateDataCell("1,0", normalFont, iTextElement.ALIGN_CENTER));
-                urenTabel.AddCell(CreateDataCell("", kleinFont)); // Lege opmerking als fallback
+                urenTabel.AddCell(CreateDataCell("0-MAAND", normalFont));
+                urenTabel.AddCell(CreateDataCell("DEZE CEL IS LEEG", normalFont));
+                urenTabel.AddCell(CreateDataCell("0,0", normalFont, TextAlignment.CENTER));
+                urenTabel.AddCell(CreateDataCell("", kleinFont));
 
                 document.Add(urenTabel);
-                document.Add(new Paragraph(" "));
 
-                // Totaal uren - GEBRUIK MEEGEGEVEN WAARDE OF FALLBACK
-                var totaalTabel = new PdfPTable(2) { WidthPercentage = 35, HorizontalAlignment = iTextElement.ALIGN_RIGHT };
-                totaalTabel.AddCell(CreateTotalCell("TOTAAL UREN", headerFont));
-                totaalTabel.AddCell(CreateTotalCell(totaalUren > 0 ? FormateerUrenWaarde(totaalUren) : "1,0", headerFont, iTextElement.ALIGN_CENTER));
+                var totaalTabel = new Table(2)
+                    .SetWidth(UnitValue.CreatePercentValue(30))
+                    .SetHorizontalAlignment(HorizontalAlignment.RIGHT)
+                    .SetMarginBottom(30);
+
+                totaalTabel.AddCell(CreateTotalCell("TOTAAL UREN", headerFont, TextAlignment.LEFT));
+                totaalTabel.AddCell(CreateTotalCell(totaalUren > 0 ? FormateerUrenWaarde(totaalUren) : "1,0", headerFont, TextAlignment.CENTER));
 
                 document.Add(totaalTabel);
             }
 
-            document.Add(new Paragraph(" "));
+            // ===== OPMERKINGEN SECTIE =====
+            document.Add(new Paragraph("AANVULLENDE OPMERKINGEN")
+                .SetFont(PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD))
+                .SetFontSize(12)
+                .SetFontColor(ColorConstants.DARK_GRAY)
+                .SetMarginBottom(10));
 
-            // Opmerkingen
-            document.Add(new Paragraph("AANVULLENDE OPMERKINGEN", FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 11, BaseColor.DARK_GRAY))
-            {
-                SpacingBefore = 20f
-            });
-            document.Add(new LineSeparator(1f, 100f, BaseColor.LIGHT_GRAY, iTextElement.ALIGN_LEFT, -2));
-            document.Add(new Paragraph(" "));
-            document.Add(new Paragraph("Alle werkzaamheden zijn uitgevoerd conform de opdrachtbevestiging en geldende voorwaarden.", normalFont));
+            document.Add(new LineSeparator(new SolidLine(1f))
+                .SetStrokeColor(ColorConstants.LIGHT_GRAY)
+                .SetMarginBottom(15));
+
+            document.Add(new Paragraph("Alle werkzaamheden zijn uitgevoerd conform de opdrachtbevestiging en geldende voorwaarden.")
+                .SetFont(normalFont)
+                .SetFontSize(10));
+        }
+
+        /// <summary>
+        /// Maakt een styled phrase voor Quattro tekst in betalingsinfo
+        /// </summary>
+        private static void AddQuattroStyledPhrase(Paragraph paragraph, PdfFont baseFont)
+        {
+            var orangeColor = new DeviceRgb(218, 119, 47);
+            var blueColor = new DeviceRgb(70, 89, 155);
+
+            paragraph.Add(new Text("Q").SetFont(baseFont).SetFontColor(orangeColor));
+            paragraph.Add(new Text("uattro").SetFont(baseFont).SetFontColor(blueColor));
+            paragraph.Add(new Text(" Bouw & Vastgoed Advies BV").SetFont(baseFont));
         }
 
         /// <summary>
@@ -417,31 +577,26 @@ namespace QuattroFacturatieProgramma.Helpers
             if (string.IsNullOrWhiteSpace(urenText))
                 return 0.0;
 
-            // Vervang komma door punt voor consistent parsing
             string normalizedText = urenText.Trim().Replace(",", ".");
 
-            // Probeer direct te parsen
             if (double.TryParse(normalizedText, System.Globalization.NumberStyles.Float,
                 System.Globalization.CultureInfo.InvariantCulture, out double result))
             {
                 return result;
             }
 
-            // Probeer met Nederlandse cultuur (komma als decimaal)
             if (double.TryParse(urenText.Trim(), System.Globalization.NumberStyles.Float,
                 System.Globalization.CultureInfo.CreateSpecificCulture("nl-NL"), out result))
             {
                 return result;
             }
 
-            // Probeer met Amerikaanse cultuur (punt als decimaal)
             if (double.TryParse(urenText.Trim(), System.Globalization.NumberStyles.Float,
                 System.Globalization.CultureInfo.CreateSpecificCulture("en-US"), out result))
             {
                 return result;
             }
 
-            // Laatste poging: extract alleen cijfers en punt/komma
             var cleanText = System.Text.RegularExpressions.Regex.Replace(urenText, @"[^\d,.]", "");
             if (!string.IsNullOrEmpty(cleanText))
             {
@@ -462,80 +617,73 @@ namespace QuattroFacturatieProgramma.Helpers
         /// </summary>
         private static string FormateerUrenWaarde(double uren)
         {
-            // Nederlandse formatting: 1,5 in plaats van 1.5
             return uren.ToString("0.0", System.Globalization.CultureInfo.CreateSpecificCulture("nl-NL"));
         }
 
         /// <summary>
         /// Maakt een styled paragraph voor QUATTRO met oranje Q en blauwe uattro
         /// </summary>
-        private static Paragraph CreateQuattroStyledParagraph(iTextFont baseFont)
+        private static Paragraph CreateQuattroStyledParagraph(PdfFont baseFont)
         {
-            var orangeFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, baseFont.Size, new BaseColor(218, 119, 47)); // Oranje #DA772F
-            var blueFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, baseFont.Size, new BaseColor(70, 89, 155)); // Blauw #46599B
+            var orangeColor = new DeviceRgb(218, 119, 47);
+            var blueColor = new DeviceRgb(70, 89, 155);
 
-            var paragraph = new Paragraph();
-            paragraph.Alignment = iTextElement.ALIGN_LEFT;
+            var paragraph = new Paragraph()
+                .SetTextAlignment(TextAlignment.LEFT)
+                .SetFontSize(11);
 
-            // Q in oranje
-            paragraph.Add(new Chunk("Q", orangeFont));
-            // uattro in blauw  
-            paragraph.Add(new Chunk("UATTRO", blueFont));
+            paragraph.Add(new Text("Q").SetFont(baseFont).SetFontColor(orangeColor));
+            paragraph.Add(new Text("UATTRO").SetFont(baseFont).SetFontColor(blueColor));
 
             return paragraph;
         }
 
-        /// <summary>
-        /// Maakt een styled chunk voor Quattro tekst in betalingsinfo
-        /// </summary>
-        private static Phrase CreateQuattroStyledPhrase(iTextFont baseFont)
+        // ===== CELL CREATION METHODS =====
+        private static Cell CreateHeaderCell(string text, PdfFont font, DeviceRgb bgColor, TextAlignment alignment = TextAlignment.LEFT)
         {
-            var orangeFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, baseFont.Size, new BaseColor(218, 119, 47));
-            var blueFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, baseFont.Size, new BaseColor(70, 89, 155));
-
-            var phrase = new Phrase();
-            phrase.Add(new Chunk("Q", orangeFont));
-            phrase.Add(new Chunk("uattro", blueFont));
-            phrase.Add(new Chunk(" Bouw & Vastgoed Advies BV", baseFont));
-
-            return phrase;
+            return new Cell()
+                .SetBackgroundColor(bgColor)
+                .SetPadding(12)
+                .SetBorder(Border.NO_BORDER)
+                .SetTextAlignment(alignment)
+                .SetHeight(25)
+                .Add(new Paragraph(text)
+                    .SetFont(font)
+                    .SetFontSize(11)
+                    .SetFontColor(ColorConstants.WHITE)
+                    .SetMargin(0));
         }
 
-        private static PdfPCell CreateHeaderCell(string text, iTextFont font, BaseColor bgColor, int alignment = iTextElement.ALIGN_LEFT)
+        private static Cell CreateDataCell(string text, PdfFont font, TextAlignment alignment = TextAlignment.LEFT)
         {
-            return new PdfPCell(new Phrase(text, font))
-            {
-                BackgroundColor = bgColor,
-                Padding = 12,
-                Border = Rectangle.NO_BORDER,
-                HorizontalAlignment = alignment,
-                NoWrap = true, // Voorkom text wrapping
-                MinimumHeight = 25f // Voldoende hoogte
-            };
+            return new Cell()
+                .SetPadding(10)
+                .SetBorderTop(Border.NO_BORDER)
+                .SetBorderLeft(Border.NO_BORDER)
+                .SetBorderRight(Border.NO_BORDER)
+                .SetBorderBottom(new SolidBorder(ColorConstants.LIGHT_GRAY, 0.5f))
+                .SetBackgroundColor(new DeviceRgb(250, 250, 250))
+                .SetTextAlignment(alignment)
+                .Add(new Paragraph(text)
+                    .SetFont(font)
+                    .SetFontSize(10)
+                    .SetMargin(0));
         }
 
-        private static PdfPCell CreateDataCell(string text, iTextFont font, int alignment = iTextElement.ALIGN_LEFT)
+        private static Cell CreateTotalCell(string text, PdfFont font, TextAlignment alignment = TextAlignment.RIGHT)
         {
-            return new PdfPCell(new Phrase(text, font))
-            {
-                Padding = 12,
-                Border = Rectangle.BOTTOM_BORDER,
-                BorderColor = BaseColor.LIGHT_GRAY,
-                BackgroundColor = new BaseColor(252, 252, 252),
-                HorizontalAlignment = alignment
-            };
-        }
-
-        private static PdfPCell CreateTotalCell(string text, iTextFont font, int alignment = iTextElement.ALIGN_RIGHT)
-        {
-            return new PdfPCell(new Phrase(text, font))
-            {
-                Border = Rectangle.TOP_BORDER,
-                BorderColor = BaseColor.DARK_GRAY,
-                Padding = 10,
-                HorizontalAlignment = alignment,
-                BackgroundColor = new BaseColor(248, 248, 248)
-            };
+            return new Cell()
+                .SetBorderTop(new SolidBorder(ColorConstants.LIGHT_GRAY, 1))
+                .SetBorderBottom(Border.NO_BORDER)
+                .SetBorderLeft(Border.NO_BORDER)
+                .SetBorderRight(Border.NO_BORDER)
+                .SetPadding(12)
+                .SetTextAlignment(alignment)
+                .SetBackgroundColor(new DeviceRgb(248, 248, 248))
+                .Add(new Paragraph(text)
+                    .SetFont(font)
+                    .SetFontSize(10)
+                    .SetMargin(0));
         }
     }
 }
