@@ -98,18 +98,61 @@
                     <RoundRectangle CornerRadius="8"/>
                 </Border.StrokeShape>
 
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="Selecteer maand:" 
-                           FontSize="16" 
-                           FontAttributes="Bold" />
-
-                    <Picker ItemsSource="{Binding Maanden}"
-                            SelectedItem="{Binding GeselecteerdeMaand}"
-                            Title="Kies een maand..."
-                            BackgroundColor="White"
-                            TextColor="Black"
-                            IsEnabled="{Binding IsFacturenAanHetGenereren, Converter={x:Static converters:InvertedBoolConverter.Instance}}" />
-                </VerticalStackLayout>
+                <!-- Vervang je picker sectie met dit: -->
+<VerticalStackLayout Spacing="10">
+    <Label Text="Selecteer maand:"
+           FontSize="16"
+           FontAttributes="Bold" />
+    
+    <!-- DEBUG LABELS -->
+    <Label Text="{Binding Maanden.Count, StringFormat='Aantal maanden: {0}'}"
+           FontSize="12"
+           TextColor="Red" />
+    
+    <Label Text="{Binding GeselecteerdeMaand, StringFormat='Geselecteerd: {0}'}"
+           FontSize="12"
+           TextColor="Blue" />
+    
+    <!-- COLLECTIONVIEW MAAND PICKER -->
+    <Border StrokeThickness="1"
+            Stroke="Gray"
+            BackgroundColor="White"
+            HeightRequest="200">
+        <Border.StrokeShape>
+            <RoundRectangle CornerRadius="5"/>
+        </Border.StrokeShape>
+        
+        <CollectionView ItemsSource="{Binding Maanden}"
+                        SelectionMode="Single"
+                        SelectedItem="{Binding GeselecteerdeMaand}"
+                        BackgroundColor="White">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid Padding="15,10">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:MainViewModel}}, Path=SelecteerMaandDirectCommand}"
+                                                  CommandParameter="{Binding .}" />
+                        </Grid.GestureRecognizers>
+                        
+                        <Label Text="{Binding .}"
+                               FontSize="16"
+                               VerticalOptions="Center"
+                               HorizontalOptions="Start" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Border>
+    
+    <!-- TEST BUTTON -->
+    <Button Text="Test Maanden"
+            Command="{Binding TestMaandenCommand}" />
+            <Button Text="Test Mollie API"
+        Command="{Binding TestMollieApiCommand}"
+        BackgroundColor="Purple"
+        TextColor="White"
+        CornerRadius="5" />
+</VerticalStackLayout>
             </Border>
 
             <!-- Klanten lijst -->

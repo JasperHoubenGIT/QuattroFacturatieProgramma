@@ -77,7 +77,8 @@ public static class MauiProgram
         Console.WriteLine("⚠️ Gebruik fallback configuratie - voeg appsettings.json toe voor productie");
         var inMemoryConfig = new Dictionary<string, string>
         {
-            ["Mollie:ApiKey"] = "test_qRMj22PGSPTPG9S6QKMdJjGWWRNhBm",
+            ["Mollie:ApiKey"] = "live_GPnfJy9SF2sakpxdbSHmnMJqj6GGSN",
+            ["Factuurinstellingen:BedrijfsLogo"] = "quattro_logo.png",
             ["Factuurinstellingen:BedrijfsNaam"] = "QUATTRO BOUW & VASTGOED ADVIES BV",
             ["Factuurinstellingen:Adres"] = "Willinkhof 3",
             ["Factuurinstellingen:Postcode"] = "6006 RG",

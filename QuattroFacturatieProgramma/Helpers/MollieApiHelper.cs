@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using QRCoder;
@@ -22,15 +25,20 @@ namespace QuattroFacturatieProgramma.Helpers
     {
         private readonly HttpClient _httpClient;
         private readonly string _apiKey;
+        private readonly IConfiguration _configuration;
         private readonly string _baseUrl = "https://api.mollie.com/v2";
 
         public MollieApiHelper(IConfiguration configuration)
         {
+            _configuration = configuration;
             _apiKey = configuration["Mollie:ApiKey"] ?? throw new InvalidOperationException("Mollie API key niet gevonden in configuratie");
-
+            
             _httpClient = new HttpClient();
             _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _apiKey);
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "QuattroFacturatieProgramma/1.0");
+            
+            // Langere timeout voor live API
+            _httpClient.Timeout = TimeSpan.FromSeconds(30);
         }
 
         /// <summary>
@@ -44,8 +52,8 @@ namespace QuattroFacturatieProgramma.Helpers
         public async Task<(byte[] QrCode, string PaymentId)> CreeerPaymentEnQrCodeAsync(
             decimal bedrag,
             string factuurnummer,
-            string klantEmail = null,
-            string klantNaam = null)
+            string? klantEmail = null,
+            string? klantNaam = null)
         {
             try
             {
@@ -56,55 +64,89 @@ namespace QuattroFacturatieProgramma.Helpers
                 if (string.IsNullOrWhiteSpace(factuurnummer))
                     throw new ArgumentException("Factuurnummer is verplicht");
 
-                // Maak payment request
+                // DEBUG: Log wat we proberen te doen
+                Console.WriteLine($"🔄 Mollie API aanroep - Bedrag: €{bedrag:F2}, Factuur: {factuurnummer}");
+                Console.WriteLine($"🔑 API Key type: {(_apiKey.StartsWith("live_") ? "LIVE" : "TEST")}");
+
+                // AANGEPAST: Geen webhook URL voor live API zonder bestaande webhook
                 var paymentRequest = new
                 {
                     amount = new
                     {
                         currency = "EUR",
-                        value = bedrag.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)
+                        value = bedrag.ToString("F2", CultureInfo.InvariantCulture)
                     },
                     description = $"Factuur {factuurnummer}",
                     redirectUrl = "https://quattrobouwenenvastgoedadvies.nl/betaling-voltooid",
-                    webhookUrl = "https://quattrobouwenenvastgoedadvies.nl/webhook/mollie", // Optioneel
+                    // WEBHOOK URL WEGGELATEN - veroorzaakt problemen met live API
                     metadata = new
                     {
                         factuurnummer = factuurnummer,
                         klant_naam = klantNaam ?? "",
                         klant_email = klantEmail ?? ""
                     },
-                    method = new[] { "ideal", "bancontact", "sofort", "creditcard" } // Toegestane betaalmethoden
+                    // LOCALE voor Nederlandse interface
+                    locale = "nl_NL",
+                    // METHODEN uitgebreid voor meer opties
+                    method = new[] { "ideal", "bancontact", "sofort", "creditcard" }
                 };
 
-                var json = JsonSerializer.Serialize(paymentRequest);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var json = JsonSerializer.Serialize(paymentRequest, new JsonSerializerOptions 
+                { 
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
 
-                // Verstuur request naar Mollie
+                Console.WriteLine($"📤 Mollie request: {json}");
+
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                
+                // POST naar Mollie API
                 var response = await _httpClient.PostAsync($"{_baseUrl}/payments", content);
+                
+                Console.WriteLine($"📡 Mollie response status: {response.StatusCode}");
+                
+                var responseContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"📥 Mollie response: {responseContent}");
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    throw new HttpRequestException($"Mollie API fout: {response.StatusCode} - {errorContent}");
+                    Console.WriteLine($"❌ Mollie API error: {response.StatusCode} - {responseContent}");
+                    throw new HttpRequestException($"Mollie API fout: {response.StatusCode} - {responseContent}");
                 }
 
-                var responseJson = await response.Content.ReadAsStringAsync();
-                var paymentResponse = JsonSerializer.Deserialize<JsonElement>(responseJson);
-
-                // Haal payment URL en ID op
-                var paymentUrl = paymentResponse.GetProperty("_links").GetProperty("checkout").GetProperty("href").GetString();
+                // Parse response
+                var paymentResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                
                 var paymentId = paymentResponse.GetProperty("id").GetString();
-
-                if (string.IsNullOrEmpty(paymentUrl) || string.IsNullOrEmpty(paymentId))
+                var checkoutUrl = paymentResponse.GetProperty("_links").GetProperty("checkout").GetProperty("href").GetString();
+                
+                if (string.IsNullOrEmpty(paymentId) || string.IsNullOrEmpty(checkoutUrl))
                     throw new InvalidOperationException("Ongeldig response van Mollie API");
 
-                // Genereer QR-code voor de payment URL
-                var qrCodeBytes = GenereerQrCodeVoorUrl(paymentUrl);
+                Console.WriteLine($"✅ Payment aangemaakt - ID: {paymentId}");
+                Console.WriteLine($"🔗 Checkout URL: {checkoutUrl}");
+
+                // Genereer QR code van checkout URL
+                var qrCodeBytes = GenereerQrCodeVoorUrl(checkoutUrl);
+                
+                Console.WriteLine($"📱 QR code gegenereerd: {qrCodeBytes?.Length ?? 0} bytes");
 
                 return (qrCodeBytes, paymentId);
             }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"❌ HTTP fout: {ex.Message}");
+                throw new Exception($"Mollie API communicatie fout: {ex.Message}", ex);
+            }
+            catch (JsonException ex)
+            {
+                Console.WriteLine($"❌ JSON parse fout: {ex.Message}");
+                throw new Exception($"Mollie API response parse fout: {ex.Message}", ex);
+            }
             catch (Exception ex)
             {
+                Console.WriteLine($"❌ Algemene fout: {ex.Message}");
                 throw new Exception($"Fout bij creëren Mollie payment: {ex.Message}", ex);
             }
         }
@@ -169,15 +211,19 @@ namespace QuattroFacturatieProgramma.Helpers
         {
             try
             {
-                using var qrGenerator = new QRCodeGenerator();
-                using var qrCodeData = qrGenerator.CreateQrCode(url, QRCodeGenerator.ECCLevel.M);
-                using var qrCode = new PngByteQRCode(qrCodeData);
-
-                return qrCode.GetGraphic(20); // 20 pixels per module
+                var qrGenerator = new QRCodeGenerator();
+                var qrCodeData = qrGenerator.CreateQrCode(url, QRCodeGenerator.ECCLevel.M);
+                var qrCode = new PngByteQRCode(qrCodeData);
+                
+                var pixelsPerModule = _configuration["QrCode:PixelsPerModule"] != null 
+                    ? int.Parse(_configuration["QrCode:PixelsPerModule"]!) 
+                    : 20;
+                return qrCode.GetGraphic(pixelsPerModule);
             }
             catch (Exception ex)
             {
-                throw new Exception($"Fout bij genereren QR-code voor URL: {ex.Message}", ex);
+                Console.WriteLine($"❌ QR code generatie fout: {ex.Message}");
+                throw new Exception($"QR code generatie fout: {ex.Message}", ex);
             }
         }
 
@@ -188,11 +234,26 @@ namespace QuattroFacturatieProgramma.Helpers
         {
             try
             {
+                Console.WriteLine("🔄 Test Mollie API verbinding...");
                 var response = await _httpClient.GetAsync($"{_baseUrl}/methods");
-                return response.IsSuccessStatusCode;
+                Console.WriteLine($"📡 API test response: {response.StatusCode}");
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"✅ API verbinding succesvol");
+                    return true;
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"❌ API verbinding gefaald: {response.StatusCode} - {errorContent}");
+                    return false;
+                }
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"❌ API verbinding exception: {ex.Message}");
                 return false;
             }
         }

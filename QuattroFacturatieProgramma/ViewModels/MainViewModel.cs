@@ -34,6 +34,95 @@ namespace QuattroFacturatieProgramma.ViewModels
             "Juli", "Augustus", "September", "Oktober", "November", "December"
         };
 
+[RelayCommand]
+private async Task SelecteerMaand()
+{
+    try
+    {
+        Console.WriteLine("🎯 SelecteerMaand aangeroepen");
+        
+        if (Maanden == null || Maanden.Count == 0)
+        {
+            Console.WriteLine("❌ Geen maanden beschikbaar");
+            return;
+        }
+        
+        // Toon action sheet met maanden
+        var result = await Application.Current!.MainPage!.DisplayActionSheet(
+            "Selecteer een maand", 
+            "Annuleren", 
+            null, 
+            Maanden.ToArray());
+        
+        Console.WriteLine($"🎯 Gebruiker selecteerde: {result}");
+        
+        // Controleer of er iets geselecteerd is (niet "Annuleren" of null)
+        if (!string.IsNullOrEmpty(result) && result != "Annuleren" && Maanden.Contains(result))
+        {
+            Console.WriteLine($"✅ Geldige maand geselecteerd: {result}");
+            GeselecteerdeMaand = result;
+        }
+        else
+        {
+            Console.WriteLine($"❌ Ongeldige selectie: {result}");
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ Fout in SelecteerMaand: {ex.Message}");
+        await Application.Current!.MainPage!.DisplayAlert("Fout", $"Kon maand niet selecteren: {ex.Message}", "OK");
+    }
+}
+[RelayCommand]
+private void SelecteerMaandDirect(string maand)
+{
+    try
+    {
+        Console.WriteLine($"🎯 SelecteerMaandDirect aangeroepen met: {maand}");
+        
+        if (string.IsNullOrEmpty(maand))
+        {
+            Console.WriteLine("❌ Lege maand parameter");
+            return;
+        }
+        
+        if (Maanden?.Contains(maand) == true)
+        {
+            Console.WriteLine($"✅ Geldige maand geselecteerd: {maand}");
+            GeselecteerdeMaand = maand;
+        }
+        else
+        {
+            Console.WriteLine($"❌ Ongeldige maand: {maand}");
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ Fout in SelecteerMaandDirect: {ex.Message}");
+    }
+}
+
+[RelayCommand]
+private async Task TestMaanden()
+{
+    Console.WriteLine("🧪 === TEST MAANDEN ===");
+    Console.WriteLine($"📅 Maanden count: {Maanden?.Count ?? 0}");
+    
+    if (Maanden != null)
+    {
+        foreach (var maand in Maanden)
+        {
+            Console.WriteLine($"   - {maand}");
+        }
+    }
+    
+    Console.WriteLine($"🎯 GeselecteerdeMaand: '{GeselecteerdeMaand}'");
+    Console.WriteLine($"📊 IsExcelGeladen: {IsExcelGeladen}");
+    Console.WriteLine($"🔄 IsFacturenAanHetGenereren: {IsFacturenAanHetGenereren}");
+    
+    await Application.Current!.MainPage!.DisplayAlert("Test", 
+        $"Maanden: {Maanden?.Count ?? 0}\nGeselecteerd: {GeselecteerdeMaand}", "OK");
+}
         [ObservableProperty]
         private ObservableCollection<KlantItem> _klanten = new();
 
@@ -59,118 +148,236 @@ namespace QuattroFacturatieProgramma.ViewModels
         {
             _configuration = configuration;
             _klantHelper = klantHelper;
-
+            // Zorg dat Maanden collectie gevuld is
+            Maanden = new ObservableCollection<string>
+            {
+                "Januari", "Februari", "Maart", "April", "Mei", "Juni",
+                "Juli", "Augustus", "September", "Oktober", "November", "December"
+            };
+    
+            Console.WriteLine($"📅 Maanden collectie geïnitialiseerd: {Maanden.Count} maanden");
+    
             // Test en toon jaar/maand logica bij opstarten
             JaarConfiguratie.ControleerOvergangsPeriode();
             Console.WriteLine($"📅 Jaar configuratie: {JaarConfiguratie.ExcelBestandNaam} → {JaarConfiguratie.RealisatieSheetNaam}");
         }
 
         partial void OnGeselecteerdeMaandChanged(string? value)
-        {
-            if (!string.IsNullOrEmpty(value) && IsExcelGeladen)
-            {
-                LaadKlantenVoorMaand(value);
-            }
-        }
+{
+    Console.WriteLine($"🗓️ OnGeselecteerdeMaandChanged aangeroepen: '{value}'");
+    Console.WriteLine($"📊 IsExcelGeladen: {IsExcelGeladen}");
+    Console.WriteLine($"📅 Beschikbare maanden: {string.Join(", ", Maanden)}");
+    
+    if (!string.IsNullOrEmpty(value) && IsExcelGeladen)
+    {
+        Console.WriteLine($"✅ Laad klanten voor maand: {value}");
+        LaadKlantenVoorMaand(value);
+    }
+    else
+    {
+        Console.WriteLine($"❌ Kan klanten niet laden - Value: '{value}', IsExcelGeladen: {IsExcelGeladen}");
+    }
+}
 
+// Voeg dit toe aan je MainViewModel:
+
+[RelayCommand]
+private async Task TestMollieApi()
+{
+    try
+    {
+        await Application.Current!.MainPage!.DisplayAlert("Info", "Test Mollie API verbinding...", "OK");
+        
+        using var mollieHelper = new MollieApiHelper(_configuration);
+        
+        // Test verbinding
+        var verbindingOk = await mollieHelper.TestVerbindingAsync();
+        
+        if (!verbindingOk)
+        {
+            await Application.Current!.MainPage!.DisplayAlert("Fout", "Mollie API verbinding gefaald", "OK");
+            return;
+        }
+        
+        await Application.Current!.MainPage!.DisplayAlert("Succes", "Mollie API verbinding werkt!", "OK");
+        
+        // Test payment creation
+        var (qrCode, paymentId) = await mollieHelper.CreeerPaymentEnQrCodeAsync(
+            10.00m, // Test bedrag
+            "TEST-001", // Test factuurnummer
+            "test@example.com",
+            "Test Klant");
+        
+        await Application.Current!.MainPage!.DisplayAlert("Test Resultaat", 
+            $"Payment ID: {paymentId}\n" +
+            $"QR Code: {(qrCode != null ? $"{qrCode.Length} bytes" : "NULL")}", "OK");
+    }
+    catch (Exception ex)
+    {
+        await Application.Current!.MainPage!.DisplayAlert("Fout", 
+            $"Mollie API test gefaald:\n{ex.Message}", "OK");
+    }
+}
         [RelayCommand]
         private async Task LaadExcelBestand()
         {
             try
             {
+                Console.WriteLine("🔄 FilePicker wordt gestart...");
+                
                 var result = await FilePicker.PickAsync(new PickOptions
                 {
                     PickerTitle = "Selecteer Excel bestand",
                     FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
                     {
-                        { DevicePlatform.iOS, new[] { "com.microsoft.excel.xlsx" } },
+                        { DevicePlatform.iOS, new[] { "com.microsoft.excel.xlsx", "org.openxmlformats.spreadsheetml.sheet" } },
                         { DevicePlatform.Android, new[] { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" } },
                         { DevicePlatform.WinUI, new[] { ".xlsx" } },
-                        { DevicePlatform.macOS, new[] { "xlsx" } }
+                        { DevicePlatform.macOS, new[] { "xlsx", "xls" } },
+                        { DevicePlatform.MacCatalyst, new[] { "xlsx", "xls", "public.spreadsheet", "com.microsoft.excel.xlsx", "public.data" } }
                     })
                 });
 
                 if (result != null)
                 {
+                    Console.WriteLine($"📄 Bestand geselecteerd: {result.FileName}");
+                    Console.WriteLine($"📍 Pad: {result.FullPath}");
+                    
+                    // Controleer bestandsextensie
+                    var extension = Path.GetExtension(result.FileName).ToLower();
+                    if (extension != ".xlsx" && extension != ".xls")
+                    {
+                        await Application.Current!.MainPage!.DisplayAlert("Fout", 
+                            "Selecteer een Excel bestand (.xlsx of .xls)", "OK");
+                        return;
+                    }
+                    
                     _huidigeExcelPad = result.FullPath;
                     await LaadKlantenUitExcel(result.FullPath);
+                }
+                else
+                {
+                    Console.WriteLine("❌ Geen bestand geselecteerd");
                 }
             }
             catch (Exception ex)
             {
-                await Application.Current!.MainPage!.DisplayAlert("Fout", $"Kon Excel-bestand niet laden: {ex.Message}", "OK");
+                Console.WriteLine($"❌ Fout bij selecteren bestand: {ex.Message}");
+                await Application.Current!.MainPage!.DisplayAlert("Fout", $"Kon Excel-bestand niet selecteren: {ex.Message}", "OK");
             }
         }
 
         private async Task LaadKlantenUitExcel(string pad)
+{
+    try
+    {
+        _klantenPerMaand.Clear();
+        _klantenBedragen.Clear();
+        _klantHelper.ZetExcelBestandPad(pad);
+
+        using var workbook = new ExcelPackage(new FileInfo(pad));
+        var sheet = workbook.Workbook.Worksheets[JaarConfiguratie.RealisatieSheetNaam];
+
+        // Laad maandnamen
+        var maandNamen = new Dictionary<int, string>();
+        for (int kol = 2; kol <= 13; kol++)
         {
-            try
+            var maandNaam = sheet.Cells[3, kol].Value?.ToString() ?? "";
+            if (!string.IsNullOrWhiteSpace(maandNaam))
             {
-                _klantenPerMaand.Clear();
-                _klantenBedragen.Clear();
-
-                // Update KlantHelper met het juiste Excel bestand pad
-                _klantHelper.ZetExcelBestandPad(pad);
-
-                using var workbook = new ExcelPackage(new FileInfo(pad));
-                var sheet = workbook.Workbook.Worksheets[JaarConfiguratie.RealisatieSheetNaam]; // Dynamisch sheet naam
-
-                // Laad maandnamen
-                var maandNamen = new Dictionary<int, string>();
-                for (int kol = 2; kol <= 13; kol++)
-                {
-                    var maandNaam = sheet.Cells[3, kol].Value?.ToString() ?? "";
-                    if (!string.IsNullOrWhiteSpace(maandNaam))
-                    {
-                        maandNamen[kol] = maandNaam;
-                    }
-                }
-
-                // AANGEPAST: Dynamische klanten detectie
-                var klantRijen = ZoekKlantRijen(sheet);
-
-                // Laad klanten en bedragen - DYNAMISCH in plaats van hardcoded rij 4-31
-                foreach (int rij in klantRijen)
-                {
-                    var klant = sheet.Cells[rij, 1].Value?.ToString() ?? "";
-                    if (!string.IsNullOrWhiteSpace(klant))
-                    {
-                        foreach (var maandInfo in maandNamen)
-                        {
-                            int kol = maandInfo.Key;
-                            string maand = maandInfo.Value;
-
-                            var celWaarde = sheet.Cells[rij, kol].Value?.ToString() ?? "";
-                            if (double.TryParse(celWaarde, out double bedrag) && bedrag > 0)
-                            {
-                                if (!_klantenPerMaand.ContainsKey(maand))
-                                    _klantenPerMaand[maand] = new List<string>();
-
-                                if (!_klantenPerMaand[maand].Contains(klant))
-                                    _klantenPerMaand[maand].Add(klant);
-
-                                if (!_klantenBedragen.ContainsKey(maand))
-                                    _klantenBedragen[maand] = new Dictionary<string, double>();
-
-                                _klantenBedragen[maand][klant] = bedrag;
-                            }
-                        }
-                    }
-                }
-
-                var totaalKlanten = _klantenPerMaand.Values.SelectMany(x => x).Distinct().Count();
-                StatusTekst = $"Excel geladen: {totaalKlanten} unieke klanten gevonden";
-                IsExcelGeladen = true;
-
-                await Application.Current!.MainPage!.DisplayAlert("Succes",
-                    $"Klanten succesvol geladen uit Excel.\nTotaal {totaalKlanten} unieke klanten gevonden.", "OK");
-            }
-            catch (Exception ex)
-            {
-                StatusTekst = "Fout bij laden Excel";
-                await Application.Current!.MainPage!.DisplayAlert("Fout", $"Fout bij laden Excel: {ex.Message}", "OK");
+                maandNamen[kol] = maandNaam;
             }
         }
+
+        // Zoek klanten rijen
+        var klantRijen = ZoekKlantRijen(sheet);
+        
+        // DEBUG: Toon alle klanten uit kolom 1
+        var alleKlantenUitKolom1 = new List<string>();
+        var klantenMetBedragen = new HashSet<string>();
+        
+        foreach (int rij in klantRijen)
+        {
+            var klant = sheet.Cells[rij, 1].Value?.ToString() ?? "";
+            if (!string.IsNullOrWhiteSpace(klant))
+            {
+                alleKlantenUitKolom1.Add($"R{rij}: {klant}");
+                
+                // Check of klant bedragen heeft
+                bool heeftBedrag = false;
+                foreach (var maandInfo in maandNamen)
+                {
+                    int kol = maandInfo.Key;
+                    string maand = maandInfo.Value;
+                    var celWaarde = sheet.Cells[rij, kol].Value?.ToString() ?? "";
+                    
+                    if (double.TryParse(celWaarde, out double bedrag) && bedrag > 0)
+                    {
+                        heeftBedrag = true;
+                        klantenMetBedragen.Add(klant);
+                        
+                        if (!_klantenPerMaand.ContainsKey(maand))
+                            _klantenPerMaand[maand] = new List<string>();
+                        if (!_klantenPerMaand[maand].Contains(klant))
+                            _klantenPerMaand[maand].Add(klant);
+                        if (!_klantenBedragen.ContainsKey(maand))
+                            _klantenBedragen[maand] = new Dictionary<string, double>();
+                        _klantenBedragen[maand][klant] = bedrag;
+                    }
+                }
+            }
+        }
+
+        // Toon debug info via alerts
+        var klantenZonderBedragen = alleKlantenUitKolom1
+            .Select(k => k.Split(": ")[1])
+            .Where(k => !klantenMetBedragen.Contains(k))
+            .ToList();
+
+        var totaalKlanten = _klantenPerMaand.Values.SelectMany(x => x).Distinct().Count();
+        
+        // DEBUG ALERT 1: Overzicht
+        await Application.Current!.MainPage!.DisplayAlert("Debug Info 1", 
+            $"📋 Klanten uit kolom 1: {alleKlantenUitKolom1.Count}\n" +
+            $"💰 Klanten met bedragen: {klantenMetBedragen.Count}\n" +
+            $"🎯 Unieke klanten (result): {totaalKlanten}\n" +
+            $"❌ Klanten zonder bedragen: {klantenZonderBedragen.Count}", "OK");
+
+        // DEBUG ALERT 2: Klanten lijst (eerste 10)
+        var eersteKlanten = string.Join("\n", alleKlantenUitKolom1.Take(10));
+        await Application.Current!.MainPage!.DisplayAlert("Debug Info 2 - Eerste 10 klanten", 
+            eersteKlanten, "OK");
+
+        // DEBUG ALERT 3: Laatste klanten
+        var laatsteKlanten = string.Join("\n", alleKlantenUitKolom1.Skip(10));
+        if (!string.IsNullOrEmpty(laatsteKlanten))
+        {
+            await Application.Current!.MainPage!.DisplayAlert("Debug Info 3 - Overige klanten", 
+                laatsteKlanten, "OK");
+        }
+
+        // DEBUG ALERT 4: Klanten zonder bedragen
+        if (klantenZonderBedragen.Any())
+        {
+            var zonderBedragen = string.Join("\n", klantenZonderBedragen);
+            await Application.Current!.MainPage!.DisplayAlert("Debug Info 4 - Klanten ZONDER bedragen", 
+                zonderBedragen, "OK");
+        }
+
+        StatusTekst = $"Excel geladen: {totaalKlanten} unieke klanten gevonden";
+        IsExcelGeladen = true;
+
+        await Application.Current!.MainPage!.DisplayAlert("Succes",
+            $"Klanten succesvol geladen uit Excel.\n\n" +
+            $"📊 Totaal {totaalKlanten} unieke klanten gevonden\n" +
+            $"📅 Maanden: {string.Join(", ", _klantenPerMaand.Keys)}", "OK");
+    }
+    catch (Exception ex)
+    {
+        StatusTekst = "Fout bij laden Excel";
+        await Application.Current!.MainPage!.DisplayAlert("Fout", $"Fout bij laden Excel: {ex.Message}", "OK");
+    }
+}
 
         /// <summary>
         /// Zoekt dynamisch alle rijen met klanten/projecten in het Excel bestand
@@ -265,25 +472,37 @@ namespace QuattroFacturatieProgramma.ViewModels
         }
 
         private void LaadKlantenVoorMaand(string maand)
+{
+    Console.WriteLine($"🔄 LaadKlantenVoorMaand: {maand}");
+    
+    Klanten.Clear();
+
+    if (_klantenPerMaand.TryGetValue(maand, out var klanten))
+    {
+        Console.WriteLine($"👥 {klanten.Count} klanten gevonden voor {maand}");
+        
+        foreach (var klant in klanten.Distinct().OrderBy(k => k))
         {
-            Klanten.Clear();
-
-            if (_klantenPerMaand.TryGetValue(maand, out var klanten))
+            var bedrag = _klantenBedragen[maand].GetValueOrDefault(klant, 0);
+            Console.WriteLine($"   💰 {klant}: €{bedrag:F2}");
+            
+            Klanten.Add(new KlantItem
             {
-                foreach (var klant in klanten.Distinct().OrderBy(k => k))
-                {
-                    var bedrag = _klantenBedragen[maand].GetValueOrDefault(klant, 0);
-                    Klanten.Add(new KlantItem
-                    {
-                        Naam = klant,
-                        Bedrag = bedrag,
-                        IsGeselecteerd = false
-                    });
-                }
-            }
-
-            StatusTekst = $"{Klanten.Count} klanten voor {maand}";
+                Naam = klant,
+                Bedrag = bedrag,
+                IsGeselecteerd = false
+            });
         }
+    }
+    else
+    {
+        Console.WriteLine($"❌ Geen klanten gevonden voor maand: {maand}");
+        Console.WriteLine($"📋 Beschikbare maanden: {string.Join(", ", _klantenPerMaand.Keys)}");
+    }
+
+    StatusTekst = $"{Klanten.Count} klanten voor {maand}";
+    Console.WriteLine($"✅ Status: {StatusTekst}");
+}
 
         [RelayCommand]
         private void SelecteerAlleKlanten()
