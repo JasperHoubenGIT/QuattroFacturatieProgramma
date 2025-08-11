@@ -136,7 +136,8 @@ namespace QuattroFacturatieProgramma.Helpers
             document.SetMargins(50, 50, 50, 50);
 
             // GEBRUIK DYNAMISCHE DATUM LOGICA
-            var eersteVanMaand = JaarConfiguratie.BepaalEersteVanMaand(maand);
+            // Factuurdatum = huidige datum (wanneer factuur wordt gemaakt)
+            var eersteVanMaand = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
 
             // Fonts
             var titelFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
@@ -444,7 +445,8 @@ namespace QuattroFacturatieProgramma.Helpers
             document.SetMargins(50, 50, 50, 50);
 
             // GEBRUIK DYNAMISCHE DATUM LOGICA
-            var eersteVanMaand = JaarConfiguratie.BepaalEersteVanMaand(maand);
+            // Factuurdatum = huidige datum (wanneer factuur wordt gemaakt)
+            var eersteVanMaand = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
 
             // Fonts
             var titelFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);

@@ -200,16 +200,16 @@ private async Task TestMollieApi()
         }
         
         await Application.Current!.MainPage!.DisplayAlert("Succes", "Mollie API verbinding werkt!", "OK");
-        
-        // Test payment creation
-        var (qrCode, paymentId) = await mollieHelper.CreeerPaymentEnQrCodeAsync(
+
+            // Test payment creation
+            var (qrCode, paymentLinkId) = await mollieHelper.CreeerPaymentEnQrCodeAsync(
             10.00m, // Test bedrag
             "TEST-001", // Test factuurnummer
             "test@example.com",
             "Test Klant");
         
         await Application.Current!.MainPage!.DisplayAlert("Test Resultaat", 
-            $"Payment ID: {paymentId}\n" +
+            $"Payment ID: {paymentLinkId}\n" +
             $"QR Code: {(qrCode != null ? $"{qrCode.Length} bytes" : "NULL")}", "OK");
     }
     catch (Exception ex)
@@ -669,7 +669,8 @@ private async Task TestMollieApi()
             document.SetMargins(50, 50, 50, 50);
 
             // GEBRUIK DYNAMISCHE DATUM LOGICA
-            var eersteVanMaand = JaarConfiguratie.BepaalEersteVanMaand(maand);
+            // Factuurdatum = huidige datum (wanneer factuur wordt gemaakt)
+            var eersteVanMaand = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
 
             // Fonts
             var titelFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
@@ -692,7 +693,7 @@ private async Task TestMollieApi()
                 if (_configuration != null)
                 {
                     using var mollieHelper = new MollieApiHelper(_configuration);
-                    var (qrCode, molliePaymentId) = await mollieHelper.CreeerPaymentEnQrCodeAsync(
+                    var (qrCode, molliePaymentId) = await mollieHelper.CreeerPaymentLinkEnQrCodeAsync(
                         (decimal)bedrag * 1.21m, // Inclusief BTW
                         factuurnummer,
                         klantEmail,

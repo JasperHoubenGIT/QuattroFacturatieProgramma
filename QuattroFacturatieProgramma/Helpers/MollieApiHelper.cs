@@ -40,6 +40,72 @@ namespace QuattroFacturatieProgramma.Helpers
             // Langere timeout voor live API
             _httpClient.Timeout = TimeSpan.FromSeconds(30);
         }
+        public async Task<(byte[] QrCode, string PaymentLinkId)> CreeerPaymentLinkEnQrCodeAsync(
+            decimal bedrag,
+            string factuurnummer,
+            string? klantEmail = null,
+            string? klantNaam = null)
+        {
+            try
+            {
+                if (bedrag <= 0)
+                    throw new ArgumentException("Bedrag moet groter zijn dan 0");
+
+                if (string.IsNullOrWhiteSpace(factuurnummer))
+                    throw new ArgumentException("Factuurnummer is verplicht");
+
+                var request = new
+                {
+                    description = $"Factuur {factuurnummer}",
+                    amount = new
+                    {
+                        currency = "EUR",
+                        value = bedrag.ToString("F2", CultureInfo.InvariantCulture)
+                    },
+                    redirectUrl = "https://jouwdomein.nl/bedankt", // Pas aan naar jouw omgeving
+                    webhookUrl = "https://jouwdomein.nl/webhook", // Optioneel
+                    metadata = new
+                    {
+                        factuurnummer,
+                        klant_naam = klantNaam ?? "",
+                        klant_email = klantEmail ?? ""
+                    },
+                    expiresAt = DateTime.UtcNow.AddDays(15).ToString("yyyy-MM-ddTHH:mm:ssZ")
+                };
+
+                var json = JsonSerializer.Serialize(request, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                });
+
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync($"{_baseUrl}/payment-links", content);
+                var responseJson = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"❌ Mollie Payment Link error: {response.StatusCode} - {responseJson}");
+                    throw new Exception($"Mollie API fout: {response.StatusCode} - {responseJson}");
+                }
+
+                var data = JsonSerializer.Deserialize<JsonElement>(responseJson);
+                var linkId = data.GetProperty("id").GetString();
+                var linkUrl = data.GetProperty("url").GetString();
+
+                if (string.IsNullOrEmpty(linkId) || string.IsNullOrEmpty(linkUrl))
+                    throw new Exception("Kon payment link niet ophalen uit response");
+
+                var qrCode = GenereerQrCodeVoorUrl(linkUrl);
+
+                return (qrCode, linkId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Fout bij creëren payment link: {ex.Message}");
+                throw;
+            }
+        }
 
         /// <summary>
         /// Creëert een Mollie payment en genereert QR-code
@@ -50,10 +116,10 @@ namespace QuattroFacturatieProgramma.Helpers
         /// <param name="klantNaam">Naam van klant</param>
         /// <returns>Tuple met QR-code bytes en payment ID</returns>
         public async Task<(byte[] QrCode, string PaymentId)> CreeerPaymentEnQrCodeAsync(
-            decimal bedrag,
-            string factuurnummer,
-            string? klantEmail = null,
-            string? klantNaam = null)
+    decimal bedrag,
+    string factuurnummer,
+    string? klantEmail = null,
+    string? klantNaam = null)
         {
             try
             {
@@ -64,11 +130,9 @@ namespace QuattroFacturatieProgramma.Helpers
                 if (string.IsNullOrWhiteSpace(factuurnummer))
                     throw new ArgumentException("Factuurnummer is verplicht");
 
-                // DEBUG: Log wat we proberen te doen
                 Console.WriteLine($"🔄 Mollie API aanroep - Bedrag: €{bedrag:F2}, Factuur: {factuurnummer}");
                 Console.WriteLine($"🔑 API Key type: {(_apiKey.StartsWith("live_") ? "LIVE" : "TEST")}");
 
-                // AANGEPAST: Geen webhook URL voor live API zonder bestaande webhook
                 var paymentRequest = new
                 {
                     amount = new
@@ -78,21 +142,18 @@ namespace QuattroFacturatieProgramma.Helpers
                     },
                     description = $"Factuur {factuurnummer}",
                     redirectUrl = "https://quattrobouwenenvastgoedadvies.nl/betaling-voltooid",
-                    // WEBHOOK URL WEGGELATEN - veroorzaakt problemen met live API
                     metadata = new
                     {
                         factuurnummer = factuurnummer,
                         klant_naam = klantNaam ?? "",
                         klant_email = klantEmail ?? ""
                     },
-                    // LOCALE voor Nederlandse interface
-                    locale = "nl_NL",
-                    // METHODEN uitgebreid voor meer opties
-                    method = new[] { "ideal", "bancontact", "sofort", "creditcard" }
+                    locale = "nl_NL"
+                    // ⚠️ GEEN "method" opnemen = betaling blijft lang geldig
                 };
 
-                var json = JsonSerializer.Serialize(paymentRequest, new JsonSerializerOptions 
-                { 
+                var json = JsonSerializer.Serialize(paymentRequest, new JsonSerializerOptions
+                {
                     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 });
@@ -100,56 +161,39 @@ namespace QuattroFacturatieProgramma.Helpers
                 Console.WriteLine($"📤 Mollie request: {json}");
 
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
-                
-                // POST naar Mollie API
                 var response = await _httpClient.PostAsync($"{_baseUrl}/payments", content);
-                
+
                 Console.WriteLine($"📡 Mollie response status: {response.StatusCode}");
-                
+
                 var responseContent = await response.Content.ReadAsStringAsync();
                 Console.WriteLine($"📥 Mollie response: {responseContent}");
 
                 if (!response.IsSuccessStatusCode)
-                {
-                    Console.WriteLine($"❌ Mollie API error: {response.StatusCode} - {responseContent}");
                     throw new HttpRequestException($"Mollie API fout: {response.StatusCode} - {responseContent}");
-                }
 
-                // Parse response
                 var paymentResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                
                 var paymentId = paymentResponse.GetProperty("id").GetString();
                 var checkoutUrl = paymentResponse.GetProperty("_links").GetProperty("checkout").GetProperty("href").GetString();
-                
+
                 if (string.IsNullOrEmpty(paymentId) || string.IsNullOrEmpty(checkoutUrl))
                     throw new InvalidOperationException("Ongeldig response van Mollie API");
 
                 Console.WriteLine($"✅ Payment aangemaakt - ID: {paymentId}");
                 Console.WriteLine($"🔗 Checkout URL: {checkoutUrl}");
 
-                // Genereer QR code van checkout URL
+                // Genereer QR-code
                 var qrCodeBytes = GenereerQrCodeVoorUrl(checkoutUrl);
-                
                 Console.WriteLine($"📱 QR code gegenereerd: {qrCodeBytes?.Length ?? 0} bytes");
 
                 return (qrCodeBytes, paymentId);
             }
-            catch (HttpRequestException ex)
-            {
-                Console.WriteLine($"❌ HTTP fout: {ex.Message}");
-                throw new Exception($"Mollie API communicatie fout: {ex.Message}", ex);
-            }
-            catch (JsonException ex)
-            {
-                Console.WriteLine($"❌ JSON parse fout: {ex.Message}");
-                throw new Exception($"Mollie API response parse fout: {ex.Message}", ex);
-            }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Algemene fout: {ex.Message}");
+                Console.WriteLine($"❌ Fout bij Mollie payment: {ex.Message}");
                 throw new Exception($"Fout bij creëren Mollie payment: {ex.Message}", ex);
             }
         }
+
 
         /// <summary>
         /// Controleert de status van een payment
