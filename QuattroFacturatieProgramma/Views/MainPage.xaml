@@ -6,337 +6,466 @@
              xmlns:viewmodels="clr-namespace:QuattroFacturatieProgramma.ViewModels"
              xmlns:converters="clr-namespace:QuattroFacturatieProgramma.Converters"
              x:DataType="viewmodels:MainViewModel"
-             Title="Quattro Facturatie">
+             Title="Quattro Facturatie"
+             BackgroundColor="#F8FAFC">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <!-- Cleaner Color Palette -->
+            <Color x:Key="Primary">#2563EB</Color>
+            <Color x:Key="Success">#059669</Color>
+            <Color x:Key="Warning">#D97706</Color>
+            <Color x:Key="Danger">#DC2626</Color>
+            <Color x:Key="Gray900">#111827</Color>
+            <Color x:Key="Gray700">#374151</Color>
+            <Color x:Key="Gray500">#6B7280</Color>
+            <Color x:Key="Gray300">#D1D5DB</Color>
+            <Color x:Key="Gray100">#F3F4F6</Color>
+            <Color x:Key="Gray50">#F9FAFB</Color>
+
+            <!-- Card Style -->
+            <Style x:Key="Card" TargetType="Border">
+                <Setter Property="BackgroundColor" Value="White"/>
+                <Setter Property="StrokeThickness" Value="1"/>
+                <Setter Property="Stroke" Value="{StaticResource Gray300}"/>
+                <Setter Property="StrokeShape">
+                    <Setter.Value>
+                        <RoundRectangle CornerRadius="8"/>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Action Card (for steps user must take) -->
+            <Style x:Key="ActionCard" TargetType="Border">
+                <Setter Property="BackgroundColor" Value="White"/>
+                <Setter Property="StrokeThickness" Value="2"/>
+                <Setter Property="Stroke" Value="{StaticResource Primary}"/>
+                <Setter Property="StrokeShape">
+                    <Setter.Value>
+                        <RoundRectangle CornerRadius="8"/>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Primary Button -->
+            <Style x:Key="PrimaryButton" TargetType="Button">
+                <Setter Property="BackgroundColor" Value="{StaticResource Primary}"/>
+                <Setter Property="TextColor" Value="White"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="FontAttributes" Value="Bold"/>
+                <Setter Property="Padding" Value="16,12"/>
+            </Style>
+
+            <!-- Secondary Button -->
+            <Style x:Key="SecondaryButton" TargetType="Button">
+                <Setter Property="BackgroundColor" Value="{StaticResource Gray100}"/>
+                <Setter Property="TextColor" Value="{StaticResource Gray700}"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="Padding" Value="16,12"/>
+            </Style>
+
+            <!-- Success Button -->
+            <Style x:Key="SuccessButton" TargetType="Button">
+                <Setter Property="BackgroundColor" Value="{StaticResource Success}"/>
+                <Setter Property="TextColor" Value="White"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="FontSize" Value="16"/>
+                <Setter Property="FontAttributes" Value="Bold"/>
+                <Setter Property="Padding" Value="20,16"/>
+            </Style>
+
+            <!-- Headers -->
+            <Style x:Key="StepNumber" TargetType="Label">
+                <Setter Property="BackgroundColor" Value="{StaticResource Primary}"/>
+                <Setter Property="TextColor" Value="White"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="FontAttributes" Value="Bold"/>
+                <Setter Property="HorizontalTextAlignment" Value="Center"/>
+                <Setter Property="VerticalTextAlignment" Value="Center"/>
+                <Setter Property="WidthRequest" Value="28"/>
+                <Setter Property="HeightRequest" Value="28"/>
+            </Style>
+
+            <Style x:Key="StepTitle" TargetType="Label">
+                <Setter Property="FontSize" Value="18"/>
+                <Setter Property="FontAttributes" Value="Bold"/>
+                <Setter Property="TextColor" Value="{StaticResource Gray900}"/>
+            </Style>
+
+            <Style x:Key="StepDescription" TargetType="Label">
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="TextColor" Value="{StaticResource Gray700}"/>
+                <Setter Property="LineHeight" Value="1.4"/>
+            </Style>
+
+            <Style x:Key="InfoText" TargetType="Label">
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="TextColor" Value="{StaticResource Gray500}"/>
+            </Style>
+        </ResourceDictionary>
+    </ContentPage.Resources>
 
     <ScrollView>
-        <VerticalStackLayout Spacing="20" Padding="20">
+        <StackLayout Padding="20" Spacing="20">
 
-            <!-- Titel -->
-            <HorizontalStackLayout HorizontalOptions="Center" Spacing="10">
-                <Image Source="quattro_logo.png"
-                       HeightRequest="40"
-                       VerticalOptions="Center" />
-                <Label Text="Facturatie Programma"
-                       FontSize="24"
-                       FontAttributes="Bold"
-                       VerticalOptions="Center"
-                       TextColor="#2E5C8A" />
-            </HorizontalStackLayout>
+            <!-- HEADER -->
+            <Border Style="{StaticResource Card}" Padding="20">
+                <Grid ColumnDefinitions="Auto,*">
+                    <Image Grid.Column="0" 
+                           Source="quattro_logo.png"
+                           HeightRequest="40"
+                           VerticalOptions="Center"/>
 
-            <!-- Status -->
-            <Label Text="{Binding StatusTekst}" 
-                   FontSize="14"
-                   TextColor="Gray"
-                   HorizontalOptions="Center" />
+                    <StackLayout Grid.Column="1" Spacing="4" Margin="16,0,0,0" VerticalOptions="Center">
+                        <Label Text="Quattro Facturatie"
+                               Style="{StaticResource StepTitle}"
+                               FontSize="24"/>
+                        <Label Text="{Binding StatusTekst}"
+                               Style="{StaticResource InfoText}"/>
+                    </StackLayout>
+                </Grid>
+            </Border>
 
-            <!-- NIEUWE DATUM CONFIGURATIE SECTIE -->
-            <Border StrokeThickness="2" 
-                    Stroke="#2E5C8A" 
-                    BackgroundColor="#E8F4FD"
-                    Padding="15">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="8"/>
-                </Border.StrokeShape>
+            <!-- STAP 1: DATUM INSTELLING -->
+            <Border Style="{StaticResource Card}" Padding="20">
+                <StackLayout Spacing="16">
+                    <!-- Step Header -->
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Border Grid.Column="0" 
+                                BackgroundColor="{StaticResource Primary}"
+                                StrokeShape="RoundRectangle 14"
+                                WidthRequest="28" HeightRequest="28">
+                            <Label Text="1" Style="{StaticResource StepNumber}"/>
+                        </Border>
 
-                <VerticalStackLayout Spacing="12">
-                    <Label Text="📅 Factuurdatum instelling" 
-                           FontSize="18" 
-                           FontAttributes="Bold"
-                           TextColor="#2E5C8A"/>
+                        <StackLayout Grid.Column="1" Margin="12,0,0,0" VerticalOptions="Center">
+                            <Label Text="Factuurdatum instellen" Style="{StaticResource StepTitle}"/>
+                            <Label Text="Kies hoe de factuurdatum wordt bepaald" Style="{StaticResource StepDescription}"/>
+                        </StackLayout>
+                    </Grid>
 
-                    <!-- Toggle voor automatische datum -->
-                    <HorizontalStackLayout Spacing="12">
-                        <Switch x:Name="AutomatischeDatumSwitch"
-                                IsToggled="{Binding GebruikAutomatischeDatum}"
-                                ThumbColor="White"
-                                OnColor="#28a745"/>
+                    <!-- Datum Setting -->
+                    <Border BackgroundColor="{StaticResource Gray50}" 
+                            StrokeShape="RoundRectangle 6" 
+                            Padding="16">
+                        <StackLayout Spacing="12">
+                            <!-- Toggle -->
+                            <Grid ColumnDefinitions="Auto,*">
+                                <Switch Grid.Column="0"
+                                        IsToggled="{Binding GebruikAutomatischeDatum}"
+                                        ThumbColor="White"
+                                        OnColor="{StaticResource Success}"
+                                        VerticalOptions="Center"/>
 
-                        <Label Text="Gebruik huidige maand (automatisch)" 
-                               VerticalOptions="Center"
-                               FontSize="14"
-                               TextColor="#333333"/>
-                    </HorizontalStackLayout>
+                                <StackLayout Grid.Column="1" Margin="12,0,0,0" VerticalOptions="Center">
+                                    <Label Text="Automatische datum (aanbevolen)"
+                                           FontSize="14"
+                                           FontAttributes="Bold"
+                                           TextColor="{StaticResource Gray900}"/>
+                                    <Label Text="Gebruik altijd de 1e van de huidige maand"
+                                           Style="{StaticResource InfoText}"/>
+                                </StackLayout>
+                            </Grid>
 
-                    <!-- Uitleg bij automatische datum -->
-                    <Label Text="🔄 Automatisch = altijd 1e van huidige maand als factuurdatum"
-                           FontSize="12"
-                           TextColor="#28a745"
-                           IsVisible="{Binding GebruikAutomatischeDatum}"/>
-
-                    <!-- Handmatige datum picker (alleen zichtbaar als toggle uit staat) -->
-                    <VerticalStackLayout Spacing="8" 
+                            <!-- Manual Date Picker -->
+                            <StackLayout Spacing="8" 
                                          IsVisible="{Binding GebruikAutomatischeDatum, Converter={x:Static converters:InvertedBoolConverter.Instance}}">
-                        <Label Text="📅 Kies zelf een factuurdatum:" 
-                               FontSize="14"
-                               FontAttributes="Bold"
-                               TextColor="#dc3545"/>
+                                <Label Text="→ Kies een aangepaste datum:"
+                                       FontSize="14"
+                                       FontAttributes="Bold"
+                                       TextColor="{StaticResource Warning}"/>
 
-                        <DatePicker Date="{Binding HandmaligeDatum}"
-                                    Format="dd MMMM yyyy"
-                                    BackgroundColor="White"
-                                    TextColor="Black"/>
-                    </VerticalStackLayout>
+                                <DatePicker Date="{Binding HandmaligeDatum}"
+                                            Format="dddd dd MMMM yyyy"
+                                            BackgroundColor="White"
+                                            TextColor="{StaticResource Gray900}"/>
+                            </StackLayout>
 
-                    <!-- Toon huidige factuurdatum -->
-                    <Border BackgroundColor="White"
-                            Padding="10"
-                            StrokeThickness="1"
-                            Stroke="#2E5C8A">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="5"/>
-                        </Border.StrokeShape>
-                        <Label Text="{Binding Factuurdatum, StringFormat='✅ Factuurdatum: {0:dd MMMM yyyy}'}"
-                               FontSize="14"
-                               TextColor="#2E5C8A"
-                               FontAttributes="Bold"
-                               HorizontalOptions="Center"/>
+                            <!-- Current Date Display -->
+                            <Border BackgroundColor="White"
+                                    StrokeThickness="1"
+                                    Stroke="{StaticResource Success}"
+                                    StrokeShape="RoundRectangle 6"
+                                    Padding="12">
+                                <StackLayout Spacing="2">
+                                    <Label Text="✓ Factuurdatum wordt:"
+                                           FontSize="12"
+                                           TextColor="{StaticResource Success}"
+                                           FontAttributes="Bold"/>
+                                    <Label Text="{Binding Factuurdatum, StringFormat='{0:dddd dd MMMM yyyy}'}"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           TextColor="{StaticResource Gray900}"/>
+                                </StackLayout>
+                            </Border>
+                        </StackLayout>
                     </Border>
-
-                </VerticalStackLayout>
+                </StackLayout>
             </Border>
 
-            <!-- PROGRESS INDICATOR -->
-            <Border StrokeThickness="2" 
-                    Stroke="#2E5C8A" 
-                    BackgroundColor="#E8F4FD"
-                    Padding="15"
-                    IsVisible="{Binding IsFacturenAanHetGenereren}">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="8"/>
-                </Border.StrokeShape>
+            <!-- STAP 2: EXCEL LADEN -->
+            <Border Style="{StaticResource ActionCard}" Padding="20">
+                <StackLayout Spacing="16">
+                    <!-- Step Header -->
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Border Grid.Column="0" 
+                                BackgroundColor="{StaticResource Primary}"
+                                StrokeShape="RoundRectangle 14"
+                                WidthRequest="28" HeightRequest="28">
+                            <Label Text="2" Style="{StaticResource StepNumber}"/>
+                        </Border>
 
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="🔄 Facturen aan het genereren..."
-                           FontSize="16" 
-                           FontAttributes="Bold"
-                           TextColor="#2E5C8A"
-                           HorizontalOptions="Center" />
+                        <StackLayout Grid.Column="1" Margin="12,0,0,0" VerticalOptions="Center">
+                            <Label Text="Excel bestand selecteren" Style="{StaticResource StepTitle}"/>
+                            <Label Text="Laad het bestand met klantgegevens en uren" Style="{StaticResource StepDescription}"/>
+                        </StackLayout>
+                    </Grid>
 
-                    <Label Text="{Binding FactuurProgressTekst}" 
-                           FontSize="14"
-                           TextColor="#333"
-                           HorizontalOptions="Center"
-                           LineBreakMode="TailTruncation" />
-
-                    <ProgressBar Progress="{Binding FactuurProgress, Converter={x:Static converters:PercentageToProgressConverter.Instance}}"
-                                 ProgressColor="#2E5C8A"
-                                 BackgroundColor="#DDD"
-                                 HeightRequest="8"
-                                 Margin="0,5" />
-
-                    <Label Text="{Binding FactuurProgress, StringFormat='{0:F0}% voltooid'}" 
-                           FontSize="12"
-                           TextColor="#666"
-                           HorizontalOptions="Center" />
-                </VerticalStackLayout>
-            </Border>
-
-            <!-- Excel laden sectie -->
-            <Border StrokeThickness="1" 
-                    Stroke="LightGray" 
-                    BackgroundColor="White"
-                    Padding="15">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="8"/>
-                </Border.StrokeShape>
-
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="Excel bestand" 
-                           FontSize="16" 
-                           FontAttributes="Bold" />
-
-                    <Button Text="Excel bestand laden"
+                    <Button Text="📁 Kies Excel bestand"
+                            Style="{StaticResource PrimaryButton}"
                             Command="{Binding LaadExcelBestandCommand}"
-                            BackgroundColor="#2E5C8A"
-                            TextColor="White"
-                            CornerRadius="5"
-                            IsEnabled="{Binding IsFacturenAanHetGenereren, Converter={x:Static converters:InvertedBoolConverter.Instance}}" />
-                </VerticalStackLayout>
+                            IsEnabled="{Binding IsFacturenAanHetGenereren, Converter={x:Static converters:InvertedBoolConverter.Instance}}"/>
+                </StackLayout>
             </Border>
 
-            <!-- Maand selectie -->
-            <Border StrokeThickness="1" 
-                    Stroke="LightGray" 
-                    BackgroundColor="White"
-                    Padding="15"
+            <!-- STAP 3: MAAND SELECTEREN -->
+            <Border Style="{StaticResource ActionCard}" 
+                    Padding="20"
                     IsVisible="{Binding IsExcelGeladen}">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="8"/>
-                </Border.StrokeShape>
+                <StackLayout Spacing="16">
+                    <!-- Step Header -->
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Border Grid.Column="0" 
+                                BackgroundColor="{StaticResource Primary}"
+                                StrokeShape="RoundRectangle 14"
+                                WidthRequest="28" HeightRequest="28">
+                            <Label Text="3" Style="{StaticResource StepNumber}"/>
+                        </Border>
 
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="Selecteer maand:"
-                           FontSize="16"
-                           FontAttributes="Bold" />
+                        <StackLayout Grid.Column="1" Margin="12,0,0,0" VerticalOptions="Center">
+                            <Label Text="Maand selecteren" Style="{StaticResource StepTitle}"/>
+                            <Label Text="Voor welke maand wilt u facturen maken?" Style="{StaticResource StepDescription}"/>
+                        </StackLayout>
+                    </Grid>
 
-                    <!-- DEBUG LABELS -->
-                    <Label Text="{Binding Maanden.Count, StringFormat='Aantal maanden: {0}'}"
-                           FontSize="12"
-                           TextColor="Red" />
+                    <!-- Month Grid -->
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,*,*" RowSpacing="8" ColumnSpacing="8">
+                        <!-- Q1 -->
+                        <Button Grid.Row="0" Grid.Column="0" Text="Januari" Style="{StaticResource SecondaryButton}" Command="{Binding SelecteerMaandDirectCommand}" CommandParameter="Januari"/>
+                        <Button Grid.Row="0" Grid.Column="1" Text="Februari" Style="{StaticResource SecondaryButton}" Command="{Binding SelecteerMaandDirectCommand}" CommandParameter="Februari"/>
+                        <Button Grid.Row="0" Grid.Column="2" Text="Maart" Style="{StaticResource SecondaryButton}" Command="{Binding SelecteerMaandDirectCommand}" CommandParameter="Maart"/>
 
-                    <Label Text="{Binding GeselecteerdeMaand, StringFormat='Geselecteerd: {0}'}"
-                           FontSize="12"
-                           TextColor="Blue" />
+                        <!-- Q2 -->
+                        <Button Grid.Row="1" Grid.Column="0" Text="April" Style="{StaticResource SecondaryButton}" Command="{Binding SelecteerMaandDirectCommand}" CommandParameter="April"/>
+                        <Button Grid.Row="1" Grid.Column="1" Text="Mei" Style="{StaticResource SecondaryButton}" Command="{Binding SelecteerMaandDirectCommand}" CommandParameter="Mei"/>
+                        <Button Grid.Row="1" Grid.Column="2" Text="Juni" Style="{StaticResource SecondaryButton}" Command="{Binding SelecteerMaandDirectCommand}" CommandParameter="Juni"/>
 
-                    <!-- COLLECTIONVIEW MAAND PICKER -->
-                    <Border StrokeThickness="1"
-                            Stroke="Gray"
-                            BackgroundColor="White"
-                            HeightRequest="200">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="5"/>
-                        </Border.StrokeShape>
+                        <!-- Q3 -->
+                        <Button Grid.Row="2" Grid.Column="0" Text="Juli" Style="{StaticResource SecondaryButton}" Command="{Binding SelecteerMaandDirectCommand}" CommandParameter="Juli"/>
+                        <Button Grid.Row="2" Grid.Column="1" Text="Augustus" Style="{StaticResource SecondaryButton}" Command="{Binding SelecteerMaandDirectCommand}" CommandParameter="Augustus"/>
+                        <Button Grid.Row="2" Grid.Column="2" Text="September" Style="{StaticResource SecondaryButton}" Command="{Binding SelecteerMaandDirectCommand}" CommandParameter="September"/>
 
-                        <CollectionView ItemsSource="{Binding Maanden}"
-                                        SelectionMode="Single"
-                                        SelectedItem="{Binding GeselecteerdeMaand}"
-                                        BackgroundColor="White">
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Padding="15,10">
-                                        <Grid.GestureRecognizers>
-                                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:MainViewModel}}, Path=SelecteerMaandDirectCommand}"
-                                                                  CommandParameter="{Binding .}" />
-                                        </Grid.GestureRecognizers>
+                        <!-- Q4 -->
+                        <Button Grid.Row="3" Grid.Column="0" Text="Oktober" Style="{StaticResource SecondaryButton}" Command="{Binding SelecteerMaandDirectCommand}" CommandParameter="Oktober"/>
+                        <Button Grid.Row="3" Grid.Column="1" Text="November" Style="{StaticResource SecondaryButton}" Command="{Binding SelecteerMaandDirectCommand}" CommandParameter="November"/>
+                        <Button Grid.Row="3" Grid.Column="2" Text="December" Style="{StaticResource SecondaryButton}" Command="{Binding SelecteerMaandDirectCommand}" CommandParameter="December"/>
+                    </Grid>
 
-                                        <Label Text="{Binding .}"
-                                               FontSize="16"
-                                               VerticalOptions="Center"
-                                               HorizontalOptions="Start" />
-                                    </Grid>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
-                    </Border>
-
-                    <!-- DATUM FEEDBACK SECTIE -->
-                    <Border BackgroundColor="#FFF3E0"
-                            Padding="10"
+                    <!-- Selection Summary -->
+                    <Border BackgroundColor="White"
                             StrokeThickness="1"
-                            Stroke="#FF9800"
+                            Stroke="{StaticResource Success}"
+                            StrokeShape="RoundRectangle 6"
+                            Padding="12"
                             IsVisible="{Binding GeselecteerdeMaand, Converter={x:Static converters:IsNotNullConverter.Instance}}">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="5"/>
-                        </Border.StrokeShape>
-                        <StackLayout Orientation="Horizontal" Spacing="5">
-                            <Label Text="ℹ️" FontSize="16" VerticalOptions="Center"/>
-                            <StackLayout Orientation="Vertical" Spacing="2">
-                                <StackLayout Orientation="Horizontal" Spacing="5">
-                                    <Label Text="Facturen voor:" FontSize="12" FontAttributes="Bold" TextColor="#E65100"/>
-                                    <Label Text="{Binding GeselecteerdeMaand}" FontSize="12" FontAttributes="Bold" TextColor="#D84315"/>
-                                </StackLayout>
-                                <StackLayout Orientation="Horizontal" Spacing="5">
-                                    <Label Text="Factuurdatum wordt:" FontSize="12" FontAttributes="Bold" TextColor="#E65100"/>
-                                    <Label Text="{Binding Factuurdatum, StringFormat='{0:MMMM yyyy}'}" 
-                                           FontSize="12" FontAttributes="Bold" TextColor="#2E7D32"/>
-                                </StackLayout>
+                        <StackLayout Spacing="4">
+                            <Label Text="✓ Selectie bevestigd"
+                                   FontSize="12"
+                                   TextColor="{StaticResource Success}"
+                                   FontAttributes="Bold"/>
+                            <StackLayout Orientation="Horizontal" Spacing="4">
+                                <Label Text="Facturen voor maand:" Style="{StaticResource InfoText}"/>
+                                <Label Text="{Binding GeselecteerdeMaand}" 
+                                       FontSize="13" 
+                                       FontAttributes="Bold" 
+                                       TextColor="{StaticResource Gray900}"/>
+                            </StackLayout>
+                            <StackLayout Orientation="Horizontal" Spacing="4">
+                                <Label Text="Factuurdatum wordt:" Style="{StaticResource InfoText}"/>
+                                <Label Text="{Binding Factuurdatum, StringFormat='{0:dd MMMM yyyy}'}" 
+                                       FontSize="13" 
+                                       FontAttributes="Bold" 
+                                       TextColor="{StaticResource Success}"/>
                             </StackLayout>
                         </StackLayout>
                     </Border>
-
-                    <!-- TEST BUTTONS -->
-                    <HorizontalStackLayout Spacing="10">
-                        <Button Text="Test Maanden"
-                                Command="{Binding TestMaandenCommand}"
-                                BackgroundColor="#FFC107"
-                                TextColor="White"
-                                CornerRadius="5"
-                                HorizontalOptions="FillAndExpand" />
-
-                        <Button Text="Test Mollie API"
-                                Command="{Binding TestMollieApiCommand}"
-                                BackgroundColor="Purple"
-                                TextColor="White"
-                                CornerRadius="5"
-                                HorizontalOptions="FillAndExpand" />
-                    </HorizontalStackLayout>
-                </VerticalStackLayout>
+                </StackLayout>
             </Border>
 
-            <!-- Klanten lijst -->
-            <Border StrokeThickness="1" 
-                    Stroke="LightGray" 
-                    BackgroundColor="White"
-                    Padding="15"
-                    IsVisible="{Binding IsExcelGeladen}">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="8"/>
-                </Border.StrokeShape>
+            <!-- STAP 4: KLANTEN SELECTEREN -->
+            <Border Style="{StaticResource ActionCard}" 
+                    Padding="20"
+                    IsVisible="{Binding GeselecteerdeMaand, Converter={x:Static converters:IsNotNullConverter.Instance}}">
+                <StackLayout Spacing="16">
+                    <!-- Step Header -->
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Border Grid.Column="0" 
+                                BackgroundColor="{StaticResource Primary}"
+                                StrokeShape="RoundRectangle 14"
+                                WidthRequest="28" HeightRequest="28">
+                            <Label Text="4" Style="{StaticResource StepNumber}"/>
+                        </Border>
 
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="Selecteer klanten:" 
-                           FontSize="16" 
-                           FontAttributes="Bold" />
+                        <StackLayout Grid.Column="1" Margin="12,0,0,0" VerticalOptions="Center">
+                            <Label Text="Klanten selecteren" Style="{StaticResource StepTitle}"/>
+                            <Label Text="Voor welke klanten wilt u facturen maken?" Style="{StaticResource StepDescription}"/>
+                        </StackLayout>
+                    </Grid>
 
-                    <ScrollView MaximumHeightRequest="300">
-                        <CollectionView ItemsSource="{Binding Klanten}"
-                                        SelectionMode="None">
+                    <!-- Quick Actions -->
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <Button Grid.Column="0"
+                                Text="✓ Alles selecteren"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding SelecteerAlleKlantenCommand}"
+                                IsEnabled="{Binding IsFacturenAanHetGenereren, Converter={x:Static converters:InvertedBoolConverter.Instance}}"/>
+
+                        <Button Grid.Column="1"
+                                Text="✗ Alles deselecteren"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding DeselecteerAlleKlantenCommand}"
+                                IsEnabled="{Binding IsFacturenAanHetGenereren, Converter={x:Static converters:InvertedBoolConverter.Instance}}"/>
+                    </Grid>
+
+                    <!-- Klanten List -->
+                    <Border BackgroundColor="{StaticResource Gray50}"
+                            StrokeShape="RoundRectangle 6"
+                            Padding="8">
+                        <CollectionView ItemsSource="{Binding Klanten}" 
+                                        MaximumHeightRequest="300"
+                                        BackgroundColor="Transparent">
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="models:KlantItem">
-                                    <Grid Padding="10,5">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
+                                    <Border BackgroundColor="White"
+                                            StrokeThickness="1"
+                                            Stroke="{StaticResource Gray300}"
+                                            StrokeShape="RoundRectangle 6"
+                                            Padding="12"
+                                            Margin="4">
+                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                            <CheckBox Grid.Column="0"
+                                                      IsChecked="{Binding IsGeselecteerd}"
+                                                      Color="{StaticResource Primary}"
+                                                      VerticalOptions="Center"/>
 
-                                        <CheckBox Grid.Column="0"
-                                                  IsChecked="{Binding IsGeselecteerd}"
-                                                  VerticalOptions="Center" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding Naam}"
+                                                   FontSize="14"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{StaticResource Gray900}"
+                                                   Margin="12,0,0,0"
+                                                   VerticalOptions="Center"/>
 
-                                        <Label Grid.Column="1"
-                                               Text="{Binding Naam}"
-                                               VerticalOptions="Center"
-                                               Margin="10,0,0,0" />
-
-                                        <Label Grid.Column="2"
-                                               Text="{Binding BedragFormatted}"
-                                               VerticalOptions="Center"
-                                               FontAttributes="Bold"
-                                               TextColor="#2E5C8A" />
-                                    </Grid>
+                                            <Label Grid.Column="2"
+                                                   Text="{Binding BedragFormatted}"
+                                                   FontSize="13"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{StaticResource Gray700}"
+                                                   VerticalOptions="Center"/>
+                                        </Grid>
+                                    </Border>
                                 </DataTemplate>
                             </CollectionView.ItemTemplate>
                         </CollectionView>
-                    </ScrollView>
-                </VerticalStackLayout>
+                    </Border>
+                </StackLayout>
             </Border>
 
-            <!-- Acties -->
-            <VerticalStackLayout Spacing="10" IsVisible="{Binding IsExcelGeladen}">
-                <Button Text="Alle klanten selecteren"
-                        Command="{Binding SelecteerAlleKlantenCommand}"
-                        BackgroundColor="#28a745"
-                        TextColor="White"
-                        CornerRadius="5"
-                        IsEnabled="{Binding IsFacturenAanHetGenereren, Converter={x:Static converters:InvertedBoolConverter.Instance}}" />
+            <!-- STAP 5: FACTUREN GENEREREN -->
+            <Border Style="{StaticResource ActionCard}" 
+                    Padding="20"
+                    IsVisible="{Binding GeselecteerdeMaand, Converter={x:Static converters:IsNotNullConverter.Instance}}">
+                <StackLayout Spacing="16">
+                    <!-- Step Header -->
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Border Grid.Column="0" 
+                                BackgroundColor="{StaticResource Success}"
+                                StrokeShape="RoundRectangle 14"
+                                WidthRequest="28" HeightRequest="28">
+                            <Label Text="5" 
+                                   TextColor="White"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center"
+                                   VerticalTextAlignment="Center"/>
+                        </Border>
 
-                <Button Text="Alle klanten deselecteren"
-                        Command="{Binding DeselecteerAlleKlantenCommand}"
-                        BackgroundColor="#6c757d"
-                        TextColor="White"
-                        CornerRadius="5"
-                        IsEnabled="{Binding IsFacturenAanHetGenereren, Converter={x:Static converters:InvertedBoolConverter.Instance}}" />
+                        <StackLayout Grid.Column="1" Margin="12,0,0,0" VerticalOptions="Center">
+                            <Label Text="Facturen genereren" Style="{StaticResource StepTitle}"/>
+                            <Label Text="Start het facturatieproces" Style="{StaticResource StepDescription}"/>
+                        </StackLayout>
+                    </Grid>
 
-                <Button Text="Facturen genereren"
-                        Command="{Binding GenereerFacturenCommand}"
-                        BackgroundColor="#dc3545"
-                        TextColor="White"
-                        CornerRadius="5"
-                        FontAttributes="Bold"
-                        FontSize="16"
-                        IsEnabled="{Binding IsFacturenAanHetGenereren, Converter={x:Static converters:InvertedBoolConverter.Instance}}" />
+                    <Button Text="🚀 Genereer facturen"
+                            Style="{StaticResource SuccessButton}"
+                            Command="{Binding GenereerFacturenCommand}"
+                            IsEnabled="{Binding IsFacturenAanHetGenereren, Converter={x:Static converters:InvertedBoolConverter.Instance}}"/>
+                </StackLayout>
+            </Border>
 
-                <Button Text="Instellingen"
-                        Command="{Binding OpenInstellingenCommand}"
-                        BackgroundColor="#007bff"
-                        TextColor="White"
-                        CornerRadius="5"
-                        FontAttributes="Bold"
-                        IsEnabled="{Binding IsFacturenAanHetGenereren, Converter={x:Static converters:InvertedBoolConverter.Instance}}" />
+            <!-- PROGRESS -->
+            <Border Style="{StaticResource Card}" 
+                    Padding="20"
+                    IsVisible="{Binding IsFacturenAanHetGenereren}">
+                <StackLayout Spacing="12">
+                    <Label Text="Facturen worden gegenereerd..."
+                           Style="{StaticResource StepTitle}"/>
 
-            </VerticalStackLayout>
+                    <Label Text="{Binding FactuurProgressTekst}" 
+                           Style="{StaticResource StepDescription}"/>
 
-        </VerticalStackLayout>
+                    <Border BackgroundColor="{StaticResource Gray100}"
+                            StrokeShape="RoundRectangle 4"
+                            Padding="2">
+                        <ProgressBar Progress="{Binding FactuurProgress, Converter={x:Static converters:PercentageToProgressConverter.Instance}}"
+                                     ProgressColor="{StaticResource Primary}"
+                                     BackgroundColor="Transparent"
+                                     HeightRequest="8"/>
+                    </Border>
+
+                    <Label Text="{Binding FactuurProgress, StringFormat='{0:F0}% voltooid'}" 
+                           Style="{StaticResource InfoText}"
+                           HorizontalOptions="Center"/>
+                </StackLayout>
+            </Border>
+
+            <!-- EXTRA FUNCTIES -->
+            <Border Style="{StaticResource Card}" Padding="20">
+                <StackLayout Spacing="16">
+                    <Label Text="Extra functies" Style="{StaticResource StepTitle}"/>
+
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                        <Button Grid.Column="0"
+                                Text="⚙️ Instellingen"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding OpenInstellingenCommand}"
+                                IsEnabled="{Binding IsFacturenAanHetGenereren, Converter={x:Static converters:InvertedBoolConverter.Instance}}"/>
+
+                        <Button Grid.Column="1"
+                                Text="🧪 Test Maanden"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding TestMaandenCommand}"/>
+
+                        <Button Grid.Column="2"
+                                Text="💳 Test Mollie"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding TestMollieApiCommand}"/>
+                    </Grid>
+                </StackLayout>
+            </Border>
+
+        </StackLayout>
     </ScrollView>
 </ContentPage>
