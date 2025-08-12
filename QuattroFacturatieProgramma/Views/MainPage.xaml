@@ -29,7 +29,73 @@
                    TextColor="Gray"
                    HorizontalOptions="Center" />
 
-            <!-- PROGRESS INDICATOR - NIEUW! -->
+            <!-- NIEUWE DATUM CONFIGURATIE SECTIE -->
+            <Border StrokeThickness="2" 
+                    Stroke="#2E5C8A" 
+                    BackgroundColor="#E8F4FD"
+                    Padding="15">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8"/>
+                </Border.StrokeShape>
+
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="📅 Factuurdatum instelling" 
+                           FontSize="18" 
+                           FontAttributes="Bold"
+                           TextColor="#2E5C8A"/>
+
+                    <!-- Toggle voor automatische datum -->
+                    <HorizontalStackLayout Spacing="12">
+                        <Switch x:Name="AutomatischeDatumSwitch"
+                                IsToggled="{Binding GebruikAutomatischeDatum}"
+                                ThumbColor="White"
+                                OnColor="#28a745"/>
+
+                        <Label Text="Gebruik huidige maand (automatisch)" 
+                               VerticalOptions="Center"
+                               FontSize="14"
+                               TextColor="#333333"/>
+                    </HorizontalStackLayout>
+
+                    <!-- Uitleg bij automatische datum -->
+                    <Label Text="🔄 Automatisch = altijd 1e van huidige maand als factuurdatum"
+                           FontSize="12"
+                           TextColor="#28a745"
+                           IsVisible="{Binding GebruikAutomatischeDatum}"/>
+
+                    <!-- Handmatige datum picker (alleen zichtbaar als toggle uit staat) -->
+                    <VerticalStackLayout Spacing="8" 
+                                         IsVisible="{Binding GebruikAutomatischeDatum, Converter={x:Static converters:InvertedBoolConverter.Instance}}">
+                        <Label Text="📅 Kies zelf een factuurdatum:" 
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               TextColor="#dc3545"/>
+
+                        <DatePicker Date="{Binding HandmaligeDatum}"
+                                    Format="dd MMMM yyyy"
+                                    BackgroundColor="White"
+                                    TextColor="Black"/>
+                    </VerticalStackLayout>
+
+                    <!-- Toon huidige factuurdatum -->
+                    <Border BackgroundColor="White"
+                            Padding="10"
+                            StrokeThickness="1"
+                            Stroke="#2E5C8A">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="5"/>
+                        </Border.StrokeShape>
+                        <Label Text="{Binding Factuurdatum, StringFormat='✅ Factuurdatum: {0:dd MMMM yyyy}'}"
+                               FontSize="14"
+                               TextColor="#2E5C8A"
+                               FontAttributes="Bold"
+                               HorizontalOptions="Center"/>
+                    </Border>
+
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- PROGRESS INDICATOR -->
             <Border StrokeThickness="2" 
                     Stroke="#2E5C8A" 
                     BackgroundColor="#E8F4FD"
@@ -98,61 +164,93 @@
                     <RoundRectangle CornerRadius="8"/>
                 </Border.StrokeShape>
 
-                <!-- Vervang je picker sectie met dit: -->
-<VerticalStackLayout Spacing="10">
-    <Label Text="Selecteer maand:"
-           FontSize="16"
-           FontAttributes="Bold" />
-    
-    <!-- DEBUG LABELS -->
-    <Label Text="{Binding Maanden.Count, StringFormat='Aantal maanden: {0}'}"
-           FontSize="12"
-           TextColor="Red" />
-    
-    <Label Text="{Binding GeselecteerdeMaand, StringFormat='Geselecteerd: {0}'}"
-           FontSize="12"
-           TextColor="Blue" />
-    
-    <!-- COLLECTIONVIEW MAAND PICKER -->
-    <Border StrokeThickness="1"
-            Stroke="Gray"
-            BackgroundColor="White"
-            HeightRequest="200">
-        <Border.StrokeShape>
-            <RoundRectangle CornerRadius="5"/>
-        </Border.StrokeShape>
-        
-        <CollectionView ItemsSource="{Binding Maanden}"
-                        SelectionMode="Single"
-                        SelectedItem="{Binding GeselecteerdeMaand}"
-                        BackgroundColor="White">
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <Grid Padding="15,10">
-                        <Grid.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:MainViewModel}}, Path=SelecteerMaandDirectCommand}"
-                                                  CommandParameter="{Binding .}" />
-                        </Grid.GestureRecognizers>
-                        
-                        <Label Text="{Binding .}"
-                               FontSize="16"
-                               VerticalOptions="Center"
-                               HorizontalOptions="Start" />
-                    </Grid>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
-    </Border>
-    
-    <!-- TEST BUTTON -->
-    <Button Text="Test Maanden"
-            Command="{Binding TestMaandenCommand}" />
-            <Button Text="Test Mollie API"
-        Command="{Binding TestMollieApiCommand}"
-        BackgroundColor="Purple"
-        TextColor="White"
-        CornerRadius="5" />
-</VerticalStackLayout>
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Selecteer maand:"
+                           FontSize="16"
+                           FontAttributes="Bold" />
+
+                    <!-- DEBUG LABELS -->
+                    <Label Text="{Binding Maanden.Count, StringFormat='Aantal maanden: {0}'}"
+                           FontSize="12"
+                           TextColor="Red" />
+
+                    <Label Text="{Binding GeselecteerdeMaand, StringFormat='Geselecteerd: {0}'}"
+                           FontSize="12"
+                           TextColor="Blue" />
+
+                    <!-- COLLECTIONVIEW MAAND PICKER -->
+                    <Border StrokeThickness="1"
+                            Stroke="Gray"
+                            BackgroundColor="White"
+                            HeightRequest="200">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="5"/>
+                        </Border.StrokeShape>
+
+                        <CollectionView ItemsSource="{Binding Maanden}"
+                                        SelectionMode="Single"
+                                        SelectedItem="{Binding GeselecteerdeMaand}"
+                                        BackgroundColor="White">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Padding="15,10">
+                                        <Grid.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:MainViewModel}}, Path=SelecteerMaandDirectCommand}"
+                                                                  CommandParameter="{Binding .}" />
+                                        </Grid.GestureRecognizers>
+
+                                        <Label Text="{Binding .}"
+                                               FontSize="16"
+                                               VerticalOptions="Center"
+                                               HorizontalOptions="Start" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </Border>
+
+                    <!-- DATUM FEEDBACK SECTIE -->
+                    <Border BackgroundColor="#FFF3E0"
+                            Padding="10"
+                            StrokeThickness="1"
+                            Stroke="#FF9800"
+                            IsVisible="{Binding GeselecteerdeMaand, Converter={x:Static converters:IsNotNullConverter.Instance}}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="5"/>
+                        </Border.StrokeShape>
+                        <StackLayout Orientation="Horizontal" Spacing="5">
+                            <Label Text="ℹ️" FontSize="16" VerticalOptions="Center"/>
+                            <StackLayout Orientation="Vertical" Spacing="2">
+                                <StackLayout Orientation="Horizontal" Spacing="5">
+                                    <Label Text="Facturen voor:" FontSize="12" FontAttributes="Bold" TextColor="#E65100"/>
+                                    <Label Text="{Binding GeselecteerdeMaand}" FontSize="12" FontAttributes="Bold" TextColor="#D84315"/>
+                                </StackLayout>
+                                <StackLayout Orientation="Horizontal" Spacing="5">
+                                    <Label Text="Factuurdatum wordt:" FontSize="12" FontAttributes="Bold" TextColor="#E65100"/>
+                                    <Label Text="{Binding Factuurdatum, StringFormat='{0:MMMM yyyy}'}" 
+                                           FontSize="12" FontAttributes="Bold" TextColor="#2E7D32"/>
+                                </StackLayout>
+                            </StackLayout>
+                        </StackLayout>
+                    </Border>
+
+                    <!-- TEST BUTTONS -->
+                    <HorizontalStackLayout Spacing="10">
+                        <Button Text="Test Maanden"
+                                Command="{Binding TestMaandenCommand}"
+                                BackgroundColor="#FFC107"
+                                TextColor="White"
+                                CornerRadius="5"
+                                HorizontalOptions="FillAndExpand" />
+
+                        <Button Text="Test Mollie API"
+                                Command="{Binding TestMollieApiCommand}"
+                                BackgroundColor="Purple"
+                                TextColor="White"
+                                CornerRadius="5"
+                                HorizontalOptions="FillAndExpand" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
             </Border>
 
             <!-- Klanten lijst -->

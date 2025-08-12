@@ -135,7 +135,7 @@ namespace QuattroFacturatieProgramma.Helpers
             using var document = new Document(pdf, PageSize.A4);
             document.SetMargins(50, 50, 50, 50);
 
-            // GEBRUIK DYNAMISCHE DATUM LOGICA
+            // GEBRUIK NIEUWE FACTUURDATUM LOGICA
             // Factuurdatum = huidige datum (wanneer factuur wordt gemaakt)
             var eersteVanMaand = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
 
@@ -444,7 +444,7 @@ namespace QuattroFacturatieProgramma.Helpers
             using var document = new Document(pdf, PageSize.A4);
             document.SetMargins(50, 50, 50, 50);
 
-            // GEBRUIK DYNAMISCHE DATUM LOGICA
+            // GEBRUIK NIEUWE FACTUURDATUM LOGICA
             // Factuurdatum = huidige datum (wanneer factuur wordt gemaakt)
             var eersteVanMaand = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
 
