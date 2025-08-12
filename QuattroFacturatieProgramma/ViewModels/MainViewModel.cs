@@ -1,20 +1,21 @@
-﻿using System.Collections.ObjectModel;
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using OfficeOpenXml;
-using QuattroFacturatieProgramma.Models;
-using QuattroFacturatieProgramma.Helpers;
-using QuattroFacturatieProgramma.Views;
-using Microsoft.Extensions.Configuration;
-using Application = Microsoft.Maui.Controls.Application;
+using iText.IO.Font.Constants;
+using iText.Kernel.Colors;
+using iText.Kernel.Font;
+using iText.Kernel.Geom;
 using iText.Kernel.Pdf;
 using iText.Layout;
 using iText.Layout.Element;
 using iText.Layout.Properties;
-using iText.Kernel.Colors;
-using iText.Kernel.Font;
-using iText.IO.Font.Constants;
-using iText.Kernel.Geom;
+using Microsoft.Extensions.Configuration;
+using OfficeOpenXml;
+using QuattroFacturatieProgramma.Helpers;
+using QuattroFacturatieProgramma.Models;
+using QuattroFacturatieProgramma.Views;
+using System.Collections.ObjectModel;
+using System.Text.RegularExpressions;
+using Application = Microsoft.Maui.Controls.Application;
 using Path = System.IO.Path;
 
 namespace QuattroFacturatieProgramma.ViewModels
@@ -167,6 +168,18 @@ namespace QuattroFacturatieProgramma.ViewModels
             await Application.Current!.MainPage!.DisplayAlert("Test",
                 $"Maanden: {Maanden?.Count ?? 0}\nGeselecteerd: {GeselecteerdeMaand}", "OK");
         }
+
+        [ObservableProperty]
+        private bool _isHandmatigFactuurnummer = false;
+
+        [ObservableProperty]
+        private string _handmatigFactuurnummer = "";
+
+        [ObservableProperty]
+        private string _factuurNummerInfo = "";
+
+        [ObservableProperty]
+        private bool _isFactuurNummerBeschikbaar = true;
 
         [ObservableProperty]
         private ObservableCollection<KlantItem> _klanten = new();
@@ -600,9 +613,35 @@ namespace QuattroFacturatieProgramma.ViewModels
                 return;
             }
 
+            // Check handmatig factuurnummer
+            string startFactuurnummer = "";
+            if (IsHandmatigFactuurnummer)
+            {
+                if (string.IsNullOrEmpty(HandmatigFactuurnummer) || !int.TryParse(HandmatigFactuurnummer, out int nummer))
+                {
+                    await Application.Current!.MainPage!.DisplayAlert("Fout", "Geef een geldig factuurnummer op.", "OK");
+                    return;
+                }
+
+                string outputMap = Preferences.Get("FactuurOpslagPad", "");
+                string testNummer = FactuurnummerHelper.GenereerHandmatigFactuurnummer(nummer);
+
+                if (FactuurnummerHelper.FactuurnummerBestaat(outputMap, testNummer))
+                {
+                    bool overschrijven = await Application.Current!.MainPage!.DisplayAlert(
+                        "Factuurnummer bestaat al",
+                        $"Factuurnummer {nummer} bestaat al. Wil je deze overschrijven?",
+                        "Ja, overschrijven", "Nee, annuleren");
+
+                    if (!overschrijven)
+                        return;
+                }
+
+                startFactuurnummer = testNummer;
+            }
+
             try
             {
-                // Dynamisch pad ophalen uit instellingen
                 string outputMap = Preferences.Get("FactuurOpslagPad", "");
 
                 if (string.IsNullOrWhiteSpace(outputMap) || !Directory.Exists(outputMap))
@@ -619,7 +658,6 @@ namespace QuattroFacturatieProgramma.ViewModels
                     return;
                 }
 
-                // START PROGRESS TRACKING OP UI THREAD
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     IsFacturenAanHetGenereren = true;
@@ -627,9 +665,8 @@ namespace QuattroFacturatieProgramma.ViewModels
                     FactuurProgressTekst = $"Voorbereiden van {geselecteerdeKlanten.Count} facturen...";
                 });
 
-                await GenereerFacturenAsync(geselecteerdeKlanten, GeselecteerdeMaand, outputMap);
+                await GenereerFacturenAsync(geselecteerdeKlanten, GeselecteerdeMaand, outputMap, startFactuurnummer);
 
-                // EINDE PROGRESS TRACKING OP UI THREAD
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     IsFacturenAanHetGenereren = false;
@@ -640,10 +677,15 @@ namespace QuattroFacturatieProgramma.ViewModels
                 await Application.Current!.MainPage!.DisplayAlert("Succes",
                     $"Facturen zijn opgeslagen in:\n{outputMap}", "OK");
 
-                // Reset progress na dialog OP UI THREAD
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     FactuurProgressTekst = "";
+                    // Reset handmatig nummer na succesvol genereren
+                    if (IsHandmatigFactuurnummer)
+                    {
+                        HandmatigFactuurnummer = "";
+                        IsHandmatigFactuurnummer = false;
+                    }
                 });
             }
             catch (Exception ex)
@@ -663,30 +705,53 @@ namespace QuattroFacturatieProgramma.ViewModels
             }
         }
 
-        private async Task GenereerFacturenAsync(List<KlantItem> klanten, string maand, string outputMap)
+        private async Task GenereerFacturenAsync(List<KlantItem> klanten, string maand, string outputMap, string startFactuurnummer = "")
         {
             int aantalGegenereerd = 0;
             var fouten = new List<string>();
+            int handmatigNummer = 0;
+
+            // Parse start nummer voor handmatige nummering
+            if (!string.IsNullOrEmpty(startFactuurnummer))
+            {
+                var match = Regex.Match(startFactuurnummer, @"^factuur \d{4}_(\d{3})$");
+
+                if (match.Success)
+                {
+                    handmatigNummer = int.Parse(match.Groups[1].Value);
+                }
+            }
 
             foreach (var klant in klanten)
             {
                 try
                 {
-                    // BEREKEN DYNAMISCH BEDRAG: Uren × Uurtarief
                     double totaalUren = PdfHelper.BerekenTotaalUren(klant.Naam, maand, _klantHelper);
                     double uurtarief = HaalUurtariefOp(klant.Naam);
                     double berekendBedrag = totaalUren * uurtarief;
 
-                    Console.WriteLine($"💰 {klant.Naam}: {totaalUren} uren × €{uurtarief} = €{berekendBedrag:F2}");
+                    string factuurnummer;
 
-                    string factuurnummer = FactuurnummerHelper.GenereerVolgendFactuurnummer(outputMap, maand);
+                    if (!string.IsNullOrEmpty(startFactuurnummer))
+                    {
+                        // Handmatige nummering
+                        factuurnummer = FactuurnummerHelper.GenereerHandmatigFactuurnummer(handmatigNummer);
+                        handmatigNummer++; // Voor volgende factuur in batch
+                    }
+                    else
+                    {
+                        // Automatische nummering
+                        factuurnummer = FactuurnummerHelper.GenereerVolgendFactuurnummer(outputMap, maand);
+                    }
+
                     string factuurMap = FactuurnummerHelper.BepaalFactuurMap(outputMap, maand);
                     string bestandsNaam = $"{factuurnummer}_{klant.Naam.Replace(" ", "_")}.pdf";
                     string volledigPad = Path.Combine(factuurMap, bestandsNaam);
 
-                    // Gebruik berekend bedrag in plaats van klant.Bedrag
                     await GenereerPDFFactuurMetTweeBladzijdenAsync(klant.Naam, maand, berekendBedrag, volledigPad, factuurnummer);
                     aantalGegenereerd++;
+
+                    Console.WriteLine($"✅ Factuur gegenereerd: {factuurnummer}");
                 }
                 catch (Exception ex)
                 {
@@ -704,6 +769,107 @@ namespace QuattroFacturatieProgramma.ViewModels
 
             await Application.Current!.MainPage!.DisplayAlert("Resultaat", bericht, "OK");
         }
+
+        [RelayCommand]
+        private async Task ControleerFactuurnummer()
+        {
+            if (string.IsNullOrEmpty(HandmatigFactuurnummer) || !int.TryParse(HandmatigFactuurnummer, out int nummer))
+            {
+                FactuurNummerInfo = "";
+                IsFactuurNummerBeschikbaar = true;
+                return;
+            }
+
+            try
+            {
+                string outputMap = Preferences.Get("FactuurOpslagPad", "");
+                if (string.IsNullOrEmpty(outputMap))
+                {
+                    FactuurNummerInfo = "Opslagpad niet ingesteld";
+                    return;
+                }
+
+                string testNummer = FactuurnummerHelper.GenereerHandmatigFactuurnummer(nummer);
+                bool bestaat = FactuurnummerHelper.FactuurnummerBestaat(outputMap, testNummer);
+
+                IsFactuurNummerBeschikbaar = !bestaat;
+
+                if (bestaat)
+                {
+                    FactuurNummerInfo = $"⚠️ Nummer {nummer} bestaat al - wordt overschreven";
+                }
+                else
+                {
+                    FactuurNummerInfo = $"✅ Nummer {nummer} is beschikbaar";
+                }
+            }
+            catch (Exception ex)
+            {
+                FactuurNummerInfo = $"Fout: {ex.Message}";
+            }
+        }
+
+        [RelayCommand]
+        private async Task ToonBestaandeNummers()
+        {
+            try
+            {
+                string outputMap = Preferences.Get("FactuurOpslagPad", "");
+                if (string.IsNullOrEmpty(outputMap))
+                {
+                    await Application.Current!.MainPage!.DisplayAlert("Info", "Opslagpad niet ingesteld", "OK");
+                    return;
+                }
+
+                var bestaandeNummers = FactuurnummerHelper.GetBestaandeFactuurnummers(outputMap);
+
+                if (bestaandeNummers.Count == 0)
+                {
+                    await Application.Current!.MainPage!.DisplayAlert("Factuur Overzicht",
+                        "Geen facturen gevonden voor dit jaar", "OK");
+                    return;
+                }
+
+                var hoogste = bestaandeNummers.Max();
+                var ontbrekend = new List<int>();
+
+                for (int i = 1; i <= hoogste; i++)
+                {
+                    if (!bestaandeNummers.Contains(i))
+                        ontbrekend.Add(i);
+                }
+
+                string bericht = $"📊 Factuur Overzicht {DateTime.Now.Year}:\n\n";
+                bericht += $"✅ Totaal facturen: {bestaandeNummers.Count}\n";
+                bericht += $"🔢 Hoogste nummer: {hoogste}\n";
+                bericht += $"📈 Volgend automatisch: {hoogste + 1}\n\n";
+
+                if (ontbrekend.Count > 0)
+                {
+                    bericht += $"❌ Ontbrekende nummers ({ontbrekend.Count}):\n";
+                    bericht += string.Join(", ", ontbrekend.Take(20));
+                    if (ontbrekend.Count > 20)
+                        bericht += $"\n... en {ontbrekend.Count - 20} meer";
+                }
+                else
+                {
+                    bericht += "✅ Geen ontbrekende nummers";
+                }
+
+                await Application.Current!.MainPage!.DisplayAlert("Factuur Overzicht", bericht, "OK");
+            }
+            catch (Exception ex)
+            {
+                await Application.Current!.MainPage!.DisplayAlert("Fout", $"Kon overzicht niet laden: {ex.Message}", "OK");
+            }
+        }
+
+        // Property change handler voor real-time checking:
+        partial void OnHandmatigFactuurnummerChanged(string value)
+        {
+            _ = Task.Run(async () => await ControleerFactuurnummer());
+        }
+
 
         /// <summary>
         /// Haalt het uurtarief op voor een klant

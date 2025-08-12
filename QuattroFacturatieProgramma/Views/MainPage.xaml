@@ -304,6 +304,68 @@
                 </StackLayout>
             </Border>
 
+            <!-- Factuurnummer Configuratie -->
+            <Frame BackgroundColor="LightBlue" Padding="12" Margin="10,5" CornerRadius="8">
+                <StackLayout>
+                    <Label Text="🔢 Factuurnummer Instelling" FontAttributes="Bold" FontSize="16" />
+
+                    <!-- Toggle Switch -->
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+                        <Label Grid.Column="0" 
+                   Text="Handmatig factuurnummer opgeven" 
+                   VerticalOptions="Center" />
+                        <Switch Grid.Column="1" 
+                    IsToggled="{Binding IsHandmatigFactuurnummer}" 
+                    ThumbColor="White"
+                    OnColor="DodgerBlue" />
+                    </Grid>
+
+                    <!-- Handmatig Nummer Input -->
+                    <StackLayout IsVisible="{Binding IsHandmatigFactuurnummer}" Margin="0,8,0,0">
+                        <Label Text="Factuurnummer:" FontSize="14" />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Entry Grid.Column="0"
+                       Text="{Binding HandmatigFactuurnummer}"
+                       Placeholder="Bijv. 140"
+                       Keyboard="Numeric"
+                       BackgroundColor="White" />
+                            <Button Grid.Column="1"
+                        Text="📋"
+                        Command="{Binding ToonBestaandeNummersCommand}"
+                        BackgroundColor="Gray"
+                        TextColor="White"
+                        WidthRequest="40"
+                        Margin="5,0,0,0" />
+                        </Grid>
+
+                        <!-- Status Info -->
+                        <Label Text="{Binding FactuurNummerInfo}" 
+                   FontSize="12" 
+                   Margin="0,4,0,0">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label" 
+                                Binding="{Binding IsFactuurNummerBeschikbaar}" 
+                                Value="True">
+                                    <Setter Property="TextColor" Value="Green" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Label" 
+                                Binding="{Binding IsFactuurNummerBeschikbaar}" 
+                                Value="False">
+                                    <Setter Property="TextColor" Value="Orange" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                    </StackLayout>
+
+                    <!-- Auto Nummer Info -->
+                    <Label IsVisible="{Binding IsHandmatigFactuurnummer, Converter={StaticResource InvertedBoolConverter}}"
+               Text="🔄 Automatische nummering: volgend beschikbaar nummer wordt gebruikt"
+               FontSize="12"
+               TextColor="Gray"
+               Margin="0,8,0,0" />
+                </StackLayout>
+            </Frame>
+
             <!-- STAP 4: KLANTEN SELECTEREN -->
             <Border Style="{StaticResource ActionCard}" 
                     Padding="20"
