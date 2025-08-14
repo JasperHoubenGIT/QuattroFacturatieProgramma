@@ -358,7 +358,7 @@
                     </StackLayout>
 
                     <!-- Auto Nummer Info -->
-                    <Label IsVisible="{Binding IsHandmatigFactuurnummer, Converter={StaticResource InvertedBoolConverter}}"
+                    <Label IsVisible="{Binding IsHandmatigFactuurnummer, Converter={x:Static converters:InvertedBoolConverter.Instance}}"
                Text="🔄 Automatische nummering: volgend beschikbaar nummer wordt gebruikt"
                FontSize="12"
                TextColor="Gray"

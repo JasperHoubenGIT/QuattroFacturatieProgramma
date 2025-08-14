@@ -409,35 +409,17 @@ namespace QuattroFacturatieProgramma.ViewModels
                     .Where(k => !klantenMetBedragen.Contains(k))
                     .ToList();
 
-                var totaalKlanten = _klantenPerMaand.Values.SelectMany(x => x).Distinct().Count();
+                var totaalKlanten = alleKlantenUitKolom1
+                                    .Select(k => k.Split(": ")[1]) // Haal klantnaam uit "R5: Klantnaam"
+                                    .Distinct()
+                                    .Count();
 
-                // DEBUG ALERT 1: Overzicht
-                await Application.Current!.MainPage!.DisplayAlert("Debug Info 1",
+                // info geladen klanten
+                await Application.Current!.MainPage!.DisplayAlert("Info geladen klanten",
                     $"📋 Klanten uit kolom 1: {alleKlantenUitKolom1.Count}\n" +
                     $"💰 Klanten met bedragen: {klantenMetBedragen.Count}\n" +
                     $"🎯 Unieke klanten (result): {totaalKlanten}\n" +
                     $"❌ Klanten zonder bedragen: {klantenZonderBedragen.Count}", "OK");
-
-                // DEBUG ALERT 2: Klanten lijst (eerste 10)
-                var eersteKlanten = string.Join("\n", alleKlantenUitKolom1.Take(10));
-                await Application.Current!.MainPage!.DisplayAlert("Debug Info 2 - Eerste 10 klanten",
-                    eersteKlanten, "OK");
-
-                // DEBUG ALERT 3: Laatste klanten
-                var laatsteKlanten = string.Join("\n", alleKlantenUitKolom1.Skip(10));
-                if (!string.IsNullOrEmpty(laatsteKlanten))
-                {
-                    await Application.Current!.MainPage!.DisplayAlert("Debug Info 3 - Overige klanten",
-                        laatsteKlanten, "OK");
-                }
-
-                // DEBUG ALERT 4: Klanten zonder bedragen
-                if (klantenZonderBedragen.Any())
-                {
-                    var zonderBedragen = string.Join("\n", klantenZonderBedragen);
-                    await Application.Current!.MainPage!.DisplayAlert("Debug Info 4 - Klanten ZONDER bedragen",
-                        zonderBedragen, "OK");
-                }
 
                 StatusTekst = $"Excel geladen: {totaalKlanten} unieke klanten gevonden";
                 IsExcelGeladen = true;
@@ -466,7 +448,7 @@ namespace QuattroFacturatieProgramma.ViewModels
             if (startRij == -1)
             {
                 // Fallback naar oude methode als header niet gevonden
-                for (int rij = 4; rij <= 31; rij++)
+                for (int rij = 5; rij <= 31; rij++)
                 {
                     klantRijen.Add(rij);
                 }
@@ -867,7 +849,24 @@ namespace QuattroFacturatieProgramma.ViewModels
         // Property change handler voor real-time checking:
         partial void OnHandmatigFactuurnummerChanged(string value)
         {
-            _ = Task.Run(async () => await ControleerFactuurnummer());
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await ControleerFactuurnummer();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ Fout bij controleren factuurnummer: {ex.Message}");
+
+                    // Update UI op main thread
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        FactuurNummerInfo = "Fout bij controleren nummer";
+                        IsFactuurNummerBeschikbaar = false;
+                    });
+                }
+            });
         }
 
 
